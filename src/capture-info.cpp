@@ -22,6 +22,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <obs-module.h>
 
+#include <QRegularExpression>
 #include <QString>
 #include <QStringList>
 
@@ -158,6 +159,34 @@ std::vector<CapturedApp> activeCapturedApps()
 			app.title = live;
 	}
 	return apps;
+}
+
+bool isEmulator(const std::string &executable)
+{
+	static const char *const known[] = {"dolphin",  "citron",   "ryujinx", "yuzu",     "suyu",   "sudachi", "eden",
+					    "retroarch", "pcsx2",   "rpcs3",   "cemu",     "ppsspp", "duckstation",
+					    "xemu",     "vita3k",   "melonds", "desmume",  "mgba",   "azahar",  "lime3ds",
+					    "citra",    "shadps4",  "xenia",   "flycast",  "redream", "mame",    "snes9x",
+					    "bsnes",    "mesen",    "project64", "simple64", "ares",  "dosbox",  "scummvm"};
+	const QString name = QString::fromStdString(executable).toLower();
+	for (const char *emulator : known) {
+		if (name.startsWith(QLatin1String(emulator)))
+			return true;
+	}
+	return false;
+}
+
+std::string gameFromWindowTitle(const std::string &title)
+{
+	QString text = QString::fromStdString(title).simplified();
+	// Viele Emulatoren hängen das Spiel als letzten Abschnitt an („Emulator | … | Spiel“)
+	if (text.contains('|'))
+		text = text.section('|', -1).trimmed();
+	else if (text.contains(QStringLiteral(" - ")))
+		text = text.section(QStringLiteral(" - "), 1).trimmed();
+	// Spiel-IDs und Zusätze wie „(GMSE01)“, „[SLUS-20062]“ oder „(60 FPS)“ entfernen
+	text.remove(QRegularExpression(QStringLiteral("\\s*[\\(\\[][^\\)\\]]*[\\)\\]]")));
+	return text.simplified().toStdString();
 }
 
 } // namespace kgs

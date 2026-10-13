@@ -53,8 +53,11 @@ private:
 	QWidget *createTwitchTab();
 	QWidget *createDetectionTab();
 	QWidget *createTitleTab();
+	QWidget *createVoiceTab();
 	QWidget *createRulesTab();
-	void addRule(const QString &executable, const QString &category);
+	void updateTitlePreview();
+	void refreshVoice();
+	void addRule(const GameRule &rule);
 
 	void showProvider(int index);
 	void storeProvider(int index);
@@ -90,10 +93,27 @@ private:
 	QSpinBox *confirmations_;
 	QLineEdit *idleCategory_;
 	QCheckBox *windowHint_;
+	QCheckBox *verifyDatabase_;
+	QLineEdit *blocked_;
+	QLineEdit *twitchTags_;
 
 	QComboBox *titleMode_;
+	QComboBox *titlePreset_;
+	QComboBox *titleLanguage_;
+	QCheckBox *titleEmojis_;
 	QLineEdit *titleTemplate_;
 	QPlainTextEdit *titleStyle_;
+	QLineEdit *titlePrefix_;
+	QLineEdit *titleSuffix_;
+	QLabel *titlePreview_;
+	QCheckBox *progressTitles_;
+	QSpinBox *progressMinutes_;
+
+	QCheckBox *voiceEnabled_;
+	QComboBox *voiceSource_;
+	QComboBox *voiceModel_;
+	QLabel *voiceStatus_;
+	QLabel *voiceText_;
 
 	QTableWidget *rules_;
 };

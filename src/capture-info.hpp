@@ -36,4 +36,11 @@ void captureInfoStop();
 // Programme, die Spiel- oder Fensteraufnahmen gerade in der Programmausgabe zeigen. Thread-sicher.
 std::vector<CapturedApp> activeCapturedApps();
 
+// Bekannte Emulatoren – ein Programm, viele Spiele; unterschieden wird am Fenstertitel
+bool isEmulator(const std::string &executable);
+
+// Rät aus dem Fenstertitel eines Emulators den Spielnamen, z. B.
+// „Dolphin 2412 | JIT64 | Direct3D 11 | Super Mario Sunshine (GMSE01)“ → „Super Mario Sunshine“
+std::string gameFromWindowTitle(const std::string &title);
+
 } // namespace kgs

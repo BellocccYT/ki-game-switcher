@@ -23,6 +23,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QTimer>
 #include <QWidget>
 
+class QFormLayout;
 class QLabel;
 class QListWidget;
 class QPushButton;
@@ -49,9 +50,12 @@ private:
 	void onCorrect();
 
 	QPointer<Switcher> switcher_;
+	QFormLayout *form_;
 	QLabel *state_;
 	QLabel *preview_;
 	QLabel *detection_;
+	QLabel *scene_;
+	QLabel *speech_;
 	QLabel *category_;
 	QLabel *title_;
 	QLabel *twitch_;

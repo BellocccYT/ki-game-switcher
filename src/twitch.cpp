@@ -323,12 +323,27 @@ std::optional<Category> Twitch::findCategory(const std::string &name)
 	return result;
 }
 
-void Twitch::updateChannel(const std::string &gameId, const std::string &title)
+void Twitch::updateChannel(const std::string &gameId, const std::string &title,
+			   const std::vector<std::string> &tags)
 {
 	std::lock_guard lock(mutex_);
 	QJsonObject body{{"game_id", QString::fromStdString(gameId)}};
 	if (!title.empty())
 		body["title"] = QString::fromStdString(title).left(140);
+	if (!tags.empty()) {
+		QJsonArray array;
+		for (const std::string &tag : tags)
+			array.append(QString::fromStdString(tag));
+		body["tags"] = array;
+	}
+	helix("PATCH", "/channels", "broadcaster_id=" + urlEncode(userId_),
+	      QJsonDocument(body).toJson(QJsonDocument::Compact).toStdString());
+}
+
+void Twitch::updateTitle(const std::string &title)
+{
+	std::lock_guard lock(mutex_);
+	QJsonObject body{{"title", QString::fromStdString(title).left(140)}};
 	helix("PATCH", "/channels", "broadcaster_id=" + urlEncode(userId_),
 	      QJsonDocument(body).toJson(QJsonDocument::Compact).toStdString());
 }

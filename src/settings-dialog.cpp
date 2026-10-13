@@ -21,6 +21,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "ai-client.hpp"
 #include "capture-info.hpp"
 #include "switcher.hpp"
+#include "title.hpp"
+#include "voice.hpp"
 
 #include <obs-module.h>
 
@@ -29,6 +31,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -39,6 +42,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QTabWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -115,13 +119,14 @@ SettingsDialog::SettingsDialog(Switcher *switcher, QWidget *parent)
 	  settings_(switcher->settings())
 {
 	setWindowTitle("KI Game Switcher – Einstellungen");
-	setMinimumWidth(520);
+	setMinimumWidth(680);
 
 	auto *tabs = new QTabWidget;
 	tabs->addTab(createAiTab(), "KI");
 	tabs->addTab(createTwitchTab(), "Twitch");
 	tabs->addTab(createDetectionTab(), "Erkennung");
 	tabs->addTab(createTitleTab(), "Titel");
+	tabs->addTab(createVoiceTab(), "Stimme");
 	tabs->addTab(createRulesTab(), "Zuordnungen");
 
 	auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
@@ -136,6 +141,12 @@ SettingsDialog::SettingsDialog(Switcher *switcher, QWidget *parent)
 
 	connect(switcher, &Switcher::statusChanged, this, &SettingsDialog::refreshTwitch);
 	refreshTwitch();
+
+	// Download-Fortschritt und erkannter Text der Spracherkennung
+	auto *voiceTimer = new QTimer(this);
+	connect(voiceTimer, &QTimer::timeout, this, &SettingsDialog::refreshVoice);
+	voiceTimer->start(1000);
+	refreshVoice();
 }
 
 QWidget *SettingsDialog::createAiTab()
@@ -234,6 +245,12 @@ QWidget *SettingsDialog::createTwitchTab()
 	form->addRow(hint("Nur nötig, wenn du eine eigene App auf "
 			  "<a href=\"https://dev.twitch.tv/console/apps\">dev.twitch.tv</a> nutzen willst "
 			  "(Client-Typ „Öffentlich“)."));
+	twitchTags_ = new QLineEdit(qstr(settings_.twitchTags));
+	twitchTags_->setPlaceholderText("z. B. Deutsch, Gaming – leer = Tags nicht ändern");
+	twitchTags_->setToolTip("Werden bei jedem Spielwechsel gesetzt, zusammen mit den Tags der Zuordnung. "
+				"Twitch erlaubt höchstens 10 Tags aus Buchstaben und Ziffern (max. 25 Zeichen). "
+				"Leer lassen, wenn du deine Tags selbst pflegst.");
+	form->addRow("Tags bei jedem Wechsel:", twitchTags_);
 	return page;
 }
 
@@ -299,14 +316,31 @@ QWidget *SettingsDialog::createDetectionTab()
 				"die Erkennung deutlich, Fenstertitel können aber private Infos enthalten (z. B. "
 				"Browser-Tabs).");
 	form->addRow(windowHint_);
+
+	verifyDatabase_ = new QCheckBox("Vor dem Umstellen mit Steam-Screenshots abgleichen");
+	verifyDatabase_->setChecked(settings_.verifyWithDatabase);
+	verifyDatabase_->setToolTip("Bevor die KI auf ein anderes Spiel umstellt, holt das Plugin Screenshots der "
+				    "infrage kommenden Spiele aus dem Steam-Shop und lässt die KI vergleichen. Genauer, "
+				    "dauert pro Wechsel aber einige Sekunden länger. Spiele, die es nicht bei Steam gibt, "
+				    "werden ohne Abgleich umgestellt.");
+	form->addRow(verifyDatabase_);
+
+	blocked_ = new QLineEdit(qstr(settings_.blockedCategories));
+	blocked_->setPlaceholderText("z. B. Just Chatting, Bloodborne");
+	blocked_->setToolTip("Auf diese Kategorien stellt die KI nie um – praktisch für Spiele, mit denen sie dein "
+			     "Spiel oft verwechselt. Feste Zuordnungen gelten trotzdem.");
+	form->addRow("Nie umstellen auf:", blocked_);
 	return page;
 }
 
 QWidget *SettingsDialog::createTitleTab()
 {
 	auto *page = new QWidget;
-	auto *form = formPage(page);
+	auto *outer = new QVBoxLayout(page);
 
+	// -- Wie der Titel entsteht
+	auto *how = new QGroupBox("So entsteht der Titel");
+	auto *form = new QFormLayout(how);
 	titleMode_ = new QComboBox;
 	titleMode_->addItem("Von der KI schreiben lassen", static_cast<int>(TitleMode::Ai));
 	titleMode_->addItem("Vorlage verwenden", static_cast<int>(TitleMode::Template));
@@ -314,16 +348,175 @@ QWidget *SettingsDialog::createTitleTab()
 	titleMode_->setCurrentIndex(std::max(0, titleMode_->findData(static_cast<int>(settings_.titleMode))));
 	form->addRow("Titel:", titleMode_);
 
-	titleTemplate_ = new QLineEdit(qstr(settings_.titleTemplate));
-	form->addRow("Vorlage:", titleTemplate_);
-	form->addRow(hint("<code>{game}</code> wird durch die Kategorie ersetzt. Die Vorlage wird auch genutzt, "
-			  "wenn der KI-Titel fehlschlägt."));
+	titlePreset_ = new QComboBox;
+	for (const TitlePreset &preset : titlePresets()) {
+		titlePreset_->addItem(preset.label, QString(preset.id));
+		titlePreset_->setItemData(titlePreset_->count() - 1, QString::fromUtf8(preset.style), Qt::ToolTipRole);
+	}
+	titlePreset_->setCurrentIndex(std::max(0, titlePreset_->findData(qstr(settings_.titlePreset))));
+	form->addRow("Stil:", titlePreset_);
+
+	titleLanguage_ = new QComboBox;
+	titleLanguage_->addItem("Deutsch", QStringLiteral("de"));
+	titleLanguage_->addItem("Englisch", QStringLiteral("en"));
+	titleLanguage_->setCurrentIndex(std::max(0, titleLanguage_->findData(qstr(settings_.titleLanguage))));
+	titleEmojis_ = new QCheckBox("Emojis erlauben");
+	titleEmojis_->setChecked(settings_.titleEmojis);
+	titleEmojis_->setToolTip("Aus: Das Plugin entfernt Emojis selbst aus jedem Titel – auch aus der Vorlage und "
+				 "egal, was das Modell schreibt. Deine festen Teile vorne und hinten bleiben unverändert.");
+	auto *languageRow = new QHBoxLayout;
+	languageRow->addWidget(titleLanguage_);
+	languageRow->addWidget(titleEmojis_);
+	languageRow->addStretch(1);
+	form->addRow("Sprache:", languageRow);
 
 	titleStyle_ = new QPlainTextEdit(qstr(settings_.titleStyle));
-	titleStyle_->setMaximumHeight(90);
-	form->addRow("Stil für KI-Titel:", titleStyle_);
-	form->addRow(hint("Freitext, z. B. „Kurz und witzig, immer mit ‚!discord‘ am Ende“."));
+	titleStyle_->setMaximumHeight(60);
+	titleStyle_->setPlaceholderText("Optional, z. B. „Erwähne, dass es ein Blind-Run ist“");
+	form->addRow("Eigene Ergänzungen:", titleStyle_);
+	form->addRow(hint("Der Stil ist eine fertige Vorgabe – du musst keine lange Anweisung schreiben. Immer gilt "
+			  "zusätzlich: gewählte Sprache, eine Zeile, keine Hashtags, nichts Erfundenes, höchstens 140 "
+			  "Zeichen."));
+
+	titleTemplate_ = new QLineEdit(qstr(settings_.titleTemplate));
+	form->addRow("Vorlage:", titleTemplate_);
+	form->addRow(hint("Platzhalter: <code>{game}</code> = Twitch-Kategorie, <code>{scene}</code> = Situation im "
+			  "Spiel (z. B. „Bosskampf gegen den Enderdrachen“), <code>{keywords}</code> = Stichwörter aus "
+			  "deiner Stimme. Leere Platzhalter verschwinden samt Trennzeichen davor. Die Vorlage springt "
+			  "auch ein, wenn der KI-Titel fehlschlägt."));
+	outer->addWidget(how);
+
+	// -- Feste Vorgaben
+	auto *fixed = new QGroupBox("Feste Vorgaben – gelten immer, egal welches Modell");
+	auto *fixedForm = new QFormLayout(fixed);
+	titlePrefix_ = new QLineEdit(qstr(settings_.titlePrefix));
+	titlePrefix_->setPlaceholderText("z. B. [DE]");
+	fixedForm->addRow("Immer vorne:", titlePrefix_);
+	titleSuffix_ = new QLineEdit(qstr(settings_.titleSuffix));
+	titleSuffix_->setPlaceholderText("z. B. | !discord !socials");
+	fixedForm->addRow("Immer hinten:", titleSuffix_);
+	fixedForm->addRow(hint("Das Plugin setzt diese Teile selbst an jeden Titel – die KI kann sie nicht vergessen "
+			       "oder umschreiben. Zu lange Titel kürzt es in der Mitte."));
+	titlePreview_ = hint(QString());
+	titlePreview_->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	fixedForm->addRow("Vorschau:", titlePreview_);
+	outer->addWidget(fixed);
+
+	// -- Spielfortschritt
+	auto *progress = new QGroupBox("Spielfortschritt");
+	auto *progressForm = new QFormLayout(progress);
+	progressTitles_ = new QCheckBox("Titel auch anpassen, wenn sich im Spiel etwas Wichtiges ändert");
+	progressTitles_->setChecked(settings_.progressTitles);
+	progressTitles_->setToolTip("Neues Level, neue Welt, Bosskampf, anderer Spielmodus … Die KI muss den neuen "
+				    "Abschnitt so oft hintereinander erkennen, wie unter „Erkennung → Bestätigungen“ "
+				    "eingestellt.");
+	progressForm->addRow(progressTitles_);
+	progressMinutes_ = new QSpinBox;
+	progressMinutes_->setRange(5, 240);
+	progressMinutes_->setSingleStep(5);
+	progressMinutes_->setSuffix(" min");
+	progressMinutes_->setValue(settings_.progressMinutes);
+	progressForm->addRow("Frühestens alle:", progressMinutes_);
+	outer->addWidget(progress);
+	outer->addStretch(1);
+
+	auto updateEnabled = [this] {
+		const auto mode = static_cast<TitleMode>(titleMode_->currentData().toInt());
+		titlePreset_->setEnabled(mode == TitleMode::Ai);
+		titleStyle_->setEnabled(mode == TitleMode::Ai);
+		titleTemplate_->setEnabled(mode != TitleMode::Keep);
+		progressTitles_->setEnabled(mode != TitleMode::Keep);
+		progressMinutes_->setEnabled(mode != TitleMode::Keep && progressTitles_->isChecked());
+		updateTitlePreview();
+	};
+	connect(titleMode_, &QComboBox::currentIndexChanged, this, updateEnabled);
+	connect(progressTitles_, &QCheckBox::toggled, this, updateEnabled);
+	connect(titleTemplate_, &QLineEdit::textChanged, this, &SettingsDialog::updateTitlePreview);
+	connect(titleEmojis_, &QCheckBox::toggled, this, &SettingsDialog::updateTitlePreview);
+	connect(titlePrefix_, &QLineEdit::textChanged, this, &SettingsDialog::updateTitlePreview);
+	connect(titleSuffix_, &QLineEdit::textChanged, this, &SettingsDialog::updateTitlePreview);
+	updateEnabled();
 	return page;
+}
+
+void SettingsDialog::updateTitlePreview()
+{
+	Settings example = settings_;
+	example.titlePrefix = text(titlePrefix_);
+	example.titleSuffix = text(titleSuffix_);
+	example.titleEmojis = titleEmojis_->isChecked();
+	const auto mode = static_cast<TitleMode>(titleMode_->currentData().toInt());
+	if (mode == TitleMode::Keep) {
+		titlePreview_->setText("<i>Der Titel bleibt, wie er ist.</i>");
+		return;
+	}
+	const std::string core = mode == TitleMode::Ai ? std::string("‹Titel von der KI›")
+						       : fillTemplate(titleTemplate_->text().toStdString(), "Minecraft",
+								      "Bosskampf gegen den Enderdrachen", {"Hardcore"});
+	titlePreview_->setText(qstr(composeTitle(example, core)).toHtmlEscaped());
+}
+
+QWidget *SettingsDialog::createVoiceTab()
+{
+	auto *page = new QWidget;
+	auto *form = formPage(page);
+
+	std::string reason;
+	const bool supported = voice::supported(&reason);
+	voiceEnabled_ = new QCheckBox("Stimme mithören und Stichwörter für den Titel nutzen");
+	voiceEnabled_->setChecked(settings_.voiceEnabled && supported);
+	voiceEnabled_->setEnabled(supported);
+	form->addRow(voiceEnabled_);
+	form->addRow(hint(supported
+				  ? "Die Spracherkennung läuft komplett auf deinem PC (whisper.cpp). Nichts wird "
+				    "aufgenommen oder gespeichert: Das Plugin hält nur die letzten zwei Minuten Audio im "
+				    "Arbeitsspeicher und merkt sich den erkannten Text der letzten drei Minuten. Wird ein neuer "
+				    "Titel geschrieben, geht dieser Text an die gewählte KI – bei Ollama bleibt also alles "
+				    "lokal. Auf die Spielerkennung hat das Gesagte keinen Einfluss."
+				  : "<b>" + qstr(reason) + "</b>"));
+
+	voiceSource_ = new QComboBox;
+	voiceSource_->addItem("Automatisch (erstes Mikrofon)", QString());
+	for (const std::string &name : voice::audioSources())
+		voiceSource_->addItem(qstr(name), qstr(name));
+	if (!settings_.voiceSource.empty() && voiceSource_->findData(qstr(settings_.voiceSource)) < 0) {
+		// Auch andere Audioquellen sind erlaubt (z. B. ein eigener Mikrofon-Filter-Mix)
+		obs_source_t *source = obs_get_source_by_name(settings_.voiceSource.c_str());
+		voiceSource_->addItem(qstr(settings_.voiceSource) + (source ? "" : " (nicht gefunden)"),
+				      qstr(settings_.voiceSource));
+		obs_source_release(source);
+	}
+	voiceSource_->setCurrentIndex(std::max(0, voiceSource_->findData(qstr(settings_.voiceSource))));
+	form->addRow("Mikrofon:", voiceSource_);
+
+	voiceModel_ = new QComboBox;
+	for (const VoiceModelInfo &model : voiceModels())
+		voiceModel_->addItem(model.label, QString(model.id));
+	voiceModel_->setCurrentIndex(std::max(0, voiceModel_->findData(qstr(settings_.voiceModel))));
+	form->addRow("Sprachmodell:", voiceModel_);
+	form->addRow(hint("Wird beim ersten Einschalten einmalig von huggingface.co heruntergeladen. Die Erkennung "
+			  "läuft auf dem Prozessor, nur während einer Prüfung und dauert dann ein paar Sekunden."));
+
+	voiceStatus_ = hint(QString());
+	form->addRow("Status:", voiceStatus_);
+	voiceText_ = hint(QString());
+	voiceText_->setTextFormat(Qt::PlainText);
+	form->addRow("Zuletzt verstanden:", voiceText_);
+
+	auto updateEnabled = [this] {
+		voiceSource_->setEnabled(voiceEnabled_->isChecked());
+		voiceModel_->setEnabled(voiceEnabled_->isChecked());
+	};
+	connect(voiceEnabled_, &QCheckBox::toggled, this, updateEnabled);
+	updateEnabled();
+	return page;
+}
+
+void SettingsDialog::refreshVoice()
+{
+	voiceStatus_->setText(qstr(voice::status()).toHtmlEscaped());
+	const std::string last = voice::lastText();
+	voiceText_->setText(last.empty() ? QStringLiteral("–") : qstr(last));
 }
 
 QWidget *SettingsDialog::createRulesTab()
@@ -331,22 +524,39 @@ QWidget *SettingsDialog::createRulesTab()
 	auto *page = new QWidget;
 	auto *layout = new QVBoxLayout(page);
 	layout->addWidget(hint("Nimmt OBS eines dieser Programme auf (Spiel- oder Fensteraufnahme) oder ist es das "
-			       "aktive Fenster, stellt das Plugin sofort und ohne KI auf die Kategorie um. Ideal für "
-			       "PC-Spiele – 100 % sicher und kostenlos."));
+			       "aktive Fenster, stellt das Plugin sofort und ohne KI auf die Kategorie um – 100 % "
+			       "sicher und kostenlos.<br><b>Emulatoren:</b> Trag dasselbe Programm mehrmals ein, jeweils "
+			       "mit einem Teil des Fenstertitels (z. B. <code>Dolphin.exe</code> + „Mario Kart“ und "
+			       "<code>Dolphin.exe</code> + „Sunshine“). Zeilen mit Fenstertitel gehen vor.<br>"
+			       "<b>Eigener Titel</b> (optional, Platzhalter wie in der Vorlage) und <b>Tags</b> gelten nur "
+			       "für dieses Spiel."));
 
-	rules_ = new QTableWidget(0, 2);
-	rules_->setHorizontalHeaderLabels({"Programm (.exe)", "Twitch-Kategorie"});
-	rules_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+	rules_ = new QTableWidget(0, 5);
+	rules_->setHorizontalHeaderLabels(
+		{"Programm (.exe)", "Fenstertitel enthält", "Twitch-Kategorie", "Eigener Titel", "Tags"});
+	rules_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+	rules_->horizontalHeader()->setStretchLastSection(true);
+	rules_->setColumnWidth(0, 120);
+	rules_->setColumnWidth(1, 130);
+	rules_->setColumnWidth(2, 140);
+	rules_->setColumnWidth(3, 160);
 	rules_->verticalHeader()->setVisible(false);
 	rules_->setSelectionBehavior(QAbstractItemView::SelectRows);
+	rules_->horizontalHeaderItem(1)->setToolTip("Leer = gilt für jedes Fenster des Programms. Bei Emulatoren "
+						    "ein Teil des Spielnamens aus dem Fenstertitel.");
+	rules_->horizontalHeaderItem(3)->setToolTip("Leer = Titel wie unter „Titel“ eingestellt. Platzhalter: "
+						    "{game}, {scene}, {keywords}");
+	rules_->horizontalHeaderItem(4)->setToolTip("Twitch-Tags für dieses Spiel, durch Komma getrennt, z. B. "
+						    "Speedrun, Nintendo");
 	for (const GameRule &rule : settings_.rules)
-		addRule(qstr(rule.executable), qstr(rule.category));
+		addRule(rule);
 	layout->addWidget(rules_, 1);
 
 	auto *buttons = new QHBoxLayout;
 	auto *add = new QPushButton("Hinzufügen");
 	auto *fromCapture = new QPushButton("Aktuelle Aufnahmen übernehmen");
-	fromCapture->setToolTip("Trägt die Programme ein, die OBS gerade aufnimmt – du ergänzt nur noch die Kategorie");
+	fromCapture->setToolTip("Trägt die Programme ein, die OBS gerade aufnimmt. Bei Emulatoren wird der Spielname "
+				"aus dem Fenstertitel vorgeschlagen – bitte prüfen.");
 	auto *remove = new QPushButton("Entfernen");
 	buttons->addWidget(add);
 	buttons->addWidget(fromCapture);
@@ -355,14 +565,27 @@ QWidget *SettingsDialog::createRulesTab()
 	layout->addLayout(buttons);
 
 	connect(add, &QPushButton::clicked, this, [this] {
-		addRule({}, {});
+		addRule({});
 		rules_->editItem(rules_->item(rules_->rowCount() - 1, 0));
 	});
 	connect(fromCapture, &QPushButton::clicked, this, [this] {
 		for (const CapturedApp &app : activeCapturedApps()) {
-			const QString exe = qstr(app.executable);
-			if (rules_->findItems(exe, Qt::MatchFixedString).isEmpty())
-				addRule(exe, {});
+			GameRule rule;
+			rule.executable = app.executable;
+			if (isEmulator(app.executable)) {
+				rule.windowTitle = gameFromWindowTitle(app.title);
+				rule.category = rule.windowTitle;
+			}
+			bool exists = false;
+			for (int row = 0; row < rules_->rowCount(); row++) {
+				auto same = [&](int column, const std::string &value) {
+					return rules_->item(row, column) &&
+					       rules_->item(row, column)->text().trimmed().compare(qstr(value), Qt::CaseInsensitive) == 0;
+				};
+				exists = exists || (same(0, rule.executable) && same(1, rule.windowTitle));
+			}
+			if (!exists)
+				addRule(rule);
 		}
 	});
 	connect(remove, &QPushButton::clicked, this, [this] {
@@ -373,12 +596,13 @@ QWidget *SettingsDialog::createRulesTab()
 	return page;
 }
 
-void SettingsDialog::addRule(const QString &executable, const QString &category)
+void SettingsDialog::addRule(const GameRule &rule)
 {
 	const int row = rules_->rowCount();
 	rules_->insertRow(row);
-	rules_->setItem(row, 0, new QTableWidgetItem(executable));
-	rules_->setItem(row, 1, new QTableWidgetItem(category));
+	const std::string values[] = {rule.executable, rule.windowTitle, rule.category, rule.title, rule.tags};
+	for (int column = 0; column < 5; column++)
+		rules_->setItem(row, column, new QTableWidgetItem(qstr(values[column])));
 }
 
 void SettingsDialog::showProvider(int index)
@@ -501,16 +725,39 @@ void SettingsDialog::save()
 	settings_.idleCategory = text(idleCategory_);
 	settings_.sendWindowHint = windowHint_->isChecked();
 
+	settings_.verifyWithDatabase = verifyDatabase_->isChecked();
+	settings_.blockedCategories = text(blocked_);
+	settings_.twitchTags = text(twitchTags_);
+	settings_.titleLanguage = titleLanguage_->currentData().toString().toStdString();
+	settings_.titleEmojis = titleEmojis_->isChecked();
+
 	settings_.titleMode = static_cast<TitleMode>(titleMode_->currentData().toInt());
+	settings_.titlePreset = titlePreset_->currentData().toString().toStdString();
 	settings_.titleTemplate = titleTemplate_->text().toStdString();
 	settings_.titleStyle = titleStyle_->toPlainText().trimmed().toStdString();
+	settings_.titlePrefix = text(titlePrefix_);
+	settings_.titleSuffix = text(titleSuffix_);
+	settings_.progressTitles = progressTitles_->isChecked();
+	settings_.progressMinutes = progressMinutes_->value();
+
+	settings_.voiceEnabled = voiceEnabled_->isChecked();
+	settings_.voiceSource = voiceSource_->currentData().toString().toStdString();
+	settings_.voiceModel = voiceModel_->currentData().toString().toStdString();
 
 	settings_.rules.clear();
+	auto cell = [this](int row, int column) {
+		return rules_->item(row, column) ? rules_->item(row, column)->text().trimmed().toStdString()
+						 : std::string();
+	};
 	for (int row = 0; row < rules_->rowCount(); row++) {
-		const QString executable = rules_->item(row, 0) ? rules_->item(row, 0)->text().trimmed() : QString();
-		const QString category = rules_->item(row, 1) ? rules_->item(row, 1)->text().trimmed() : QString();
-		if (!executable.isEmpty() && !category.isEmpty())
-			settings_.rules.push_back({executable.toStdString(), category.toStdString()});
+		GameRule rule;
+		rule.executable = cell(row, 0);
+		rule.windowTitle = cell(row, 1);
+		rule.category = cell(row, 2);
+		rule.title = cell(row, 3);
+		rule.tags = cell(row, 4);
+		if (!rule.executable.empty() && !rule.category.empty())
+			settings_.rules.push_back(rule);
 	}
 
 	const ProviderInfo &info = providerInfo(settings_.provider);

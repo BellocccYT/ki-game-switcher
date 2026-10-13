@@ -73,7 +73,10 @@ public:
 
 	ChannelInfo getChannel();
 	std::optional<Category> findCategory(const std::string &name);
-	void updateChannel(const std::string &gameId, const std::string &title);
+	// tags leer = Tags bleiben, wie sie sind
+	void updateChannel(const std::string &gameId, const std::string &title,
+			   const std::vector<std::string> &tags = {});
+	void updateTitle(const std::string &title);
 
 private:
 	void load();

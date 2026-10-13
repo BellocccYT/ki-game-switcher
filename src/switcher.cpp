@@ -21,13 +21,17 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "ai-client.hpp"
 #include "capture-info.hpp"
 #include "frame-grabber.hpp"
+#include "game-db.hpp"
 #include "http.hpp"
+#include "title.hpp"
+#include "voice.hpp"
 #include "window-hint.hpp"
 
 // obs-module.h muss vor plugin-support.h stehen, sonst kollidiert die blogva-Deklaration
 #include <obs-module.h>
 #include <plugin-support.h>
 
+#include <QStringList>
 #include <QTime>
 
 #include <algorithm>
@@ -48,6 +52,14 @@ bool sameName(const std::string &a, const std::string &b)
 }
 
 constexpr auto kManualHold = std::chrono::minutes(15);
+constexpr auto kVerdictValid = std::chrono::minutes(10);  // bestätigtes Steam-Ergebnis
+constexpr auto kRejectionValid = std::chrono::minutes(3); // abgelehntes Steam-Ergebnis
+
+std::string lowerKey(const std::string &value)
+{
+	return qstr(value).trimmed().toLower().toStdString();
+}
+
 
 // Hinweis für die KI: was OBS aufnimmt und welches Fenster vorne ist
 std::string appHint(const std::vector<CapturedApp> &apps, const ForegroundWindow &foreground)
@@ -65,23 +77,39 @@ std::string appHint(const std::vector<CapturedApp> &apps, const ForegroundWindow
 	return hint;
 }
 
-// Aufgenommene Programme zuerst – sie sind tatsächlich im Bild; danach das Vordergrundfenster
+// Aufgenommene Programme zuerst – sie sind tatsächlich im Bild; danach das Vordergrundfenster.
+// Zuordnungen mit Fenstertitel (Emulatoren: mehrere Spiele pro Programm) gehen allgemeinen vor.
 const GameRule *matchRule(const Settings &cfg, const std::vector<CapturedApp> &apps, const ForegroundWindow &foreground)
 {
-	auto matches = [](const std::string &executable, const GameRule &rule) {
-		return !executable.empty() && sameName(executable, rule.executable);
+	auto matches = [](const std::string &executable, const std::string &title, const GameRule &rule) {
+		if (executable.empty() || !sameName(executable, rule.executable))
+			return false;
+		const QString part = qstr(rule.windowTitle).trimmed();
+		return part.isEmpty() || qstr(title).contains(part, Qt::CaseInsensitive);
 	};
-	for (const CapturedApp &app : apps) {
-		for (const GameRule &rule : cfg.rules) {
-			if (matches(app.executable, rule))
-				return &rule;
+	std::vector<std::pair<std::string, std::string>> windows;
+	for (const CapturedApp &app : apps)
+		windows.emplace_back(app.executable, app.title);
+	windows.emplace_back(foreground.executable, foreground.title);
+
+	for (const auto &[executable, title] : windows) {
+		for (const bool specific : {true, false}) {
+			for (const GameRule &rule : cfg.rules) {
+				if (qstr(rule.windowTitle).trimmed().isEmpty() != specific && matches(executable, title, rule))
+					return &rule;
+			}
 		}
 	}
-	for (const GameRule &rule : cfg.rules) {
-		if (matches(foreground.executable, rule))
-			return &rule;
-	}
 	return nullptr;
+}
+
+bool isBlocked(const Settings &cfg, const std::string &category)
+{
+	for (const std::string &blocked : splitList(cfg.blockedCategories)) {
+		if (sameName(blocked, category))
+			return true;
+	}
+	return false;
 }
 
 struct BusyGuard {
@@ -146,6 +174,7 @@ void Switcher::setSettings(const Settings &settings)
 			dueNow_ = true;
 		saveSettings(settings_);
 	}
+	voice::configure(settings);
 	wake_.notify_all();
 	emit statusChanged();
 }
@@ -183,19 +212,28 @@ void Switcher::checkNow()
 	wake_.notify_all();
 }
 
-void Switcher::correctCategory(const std::string &category, const std::string &rememberExecutable)
+void Switcher::correctCategory(const std::string &category, const std::string &rememberExecutable,
+				const std::string &rememberWindowTitle)
 {
 	if (!rememberExecutable.empty()) {
 		Settings changed = settings();
 		auto &rules = changed.rules;
+		// Gleiches Programm mit gleichem Fenstertitel-Filter ersetzen, andere Spiele des Emulators behalten
 		rules.erase(std::remove_if(rules.begin(), rules.end(),
 					   [&](const GameRule &rule) {
-						   return sameName(rule.executable, rememberExecutable);
+						   return sameName(rule.executable, rememberExecutable) &&
+							  sameName(rule.windowTitle, rememberWindowTitle);
 					   }),
 			    rules.end());
-		rules.push_back({rememberExecutable, category});
+		GameRule rule;
+		rule.executable = rememberExecutable;
+		rule.windowTitle = rememberWindowTitle;
+		rule.category = category;
+		rules.push_back(rule);
 		setSettings(changed);
-		addHistory("Zuordnung gemerkt: " + qstr(rememberExecutable) + " → " + qstr(category));
+		addHistory("Zuordnung gemerkt: " + qstr(rememberExecutable) +
+			   (rememberWindowTitle.empty() ? QString() : " („" + qstr(rememberWindowTitle) + "“)") + " → " +
+			   qstr(category));
 	}
 	{
 		std::lock_guard lock(mutex_);
@@ -243,6 +281,10 @@ StatusSnapshot Switcher::status() const
 	s.category = category_;
 	s.title = title_;
 	s.notice = notice_;
+	s.scene = scene_;
+	s.speech = speech_;
+	s.voiceEnabled = settings_.voiceEnabled;
+	s.voiceStatus = qstr(voice::status());
 	if (holdUntil_ && *holdUntil_ > std::chrono::steady_clock::now()) {
 		auto left = std::chrono::duration_cast<std::chrono::minutes>(*holdUntil_ -
 									     std::chrono::steady_clock::now());
@@ -321,6 +363,7 @@ void Switcher::run()
 			nextCheck_ = std::chrono::steady_clock::now() + std::chrono::seconds(cfg.interval);
 
 		lock.unlock();
+		voice::configure(cfg);
 		try {
 			// Kategorie und Titel für die Anzeige holen (nach Start, Login und Go-Live)
 			if (twitch_.connected() && refreshChannel_.exchange(false))
@@ -357,11 +400,72 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 
 	const std::vector<CapturedApp> apps = activeCapturedApps();
 	const ForegroundWindow foreground = foregroundWindow();
+	const GameRule *rule = matchRule(cfg, apps, foreground);
+	// Für Fortschritts-Titel braucht es die KI auch bei festen Zuordnungen (sie beschreibt die Situation)
+	const bool wantScene = cfg.progressTitles && cfg.titleMode != TitleMode::Keep;
+
+	QImage frame;
+	try {
+		frame = grabFrame(cfg.sourceName, cfg.imageWidth);
+	} catch (const std::runtime_error &e) {
+		if (!rule) {
+			setNotice(e.what(), true);
+			return;
+		}
+	}
+	if (!frame.isNull())
+		emit previewChanged(frame);
+	const bool haveFrame = !frame.isNull() && !isBlack(frame);
+	if (!rule && !haveFrame) {
+		setNotice("Kein Bild (Quelle leer oder schwarz) – übersprungen", true);
+		return;
+	}
+
+	// Gesprochenes seit der letzten Prüfung (lokal mit whisper.cpp)
+	std::string speech;
+	if (cfg.voiceEnabled) {
+		BusyGuard busy([this](bool value) { setBusy(value); });
+		speech = voice::listen(knownCategory_.value_or(std::string()));
+		recentSpeech_ = speech;
+		std::lock_guard lock(mutex_);
+		speech_ = qstr(voice::lastText());
+	}
+
+	Detection detection;
+	bool haveDetection = false;
+	EncodedImage image;
+	QString details;
+	if (haveFrame && (!rule || wantScene)) {
+		image = encodeImage(frame);
+		DetectContext context;
+		context.appHint = cfg.sendWindowHint ? appHint(apps, foreground) : std::string();
+		context.previousScene = titleScene_;
+		context.previousGame = knownCategory_.value_or(std::string());
+		context.language = titleLanguageName(cfg);
+		const auto started = std::chrono::steady_clock::now();
+		try {
+			BusyGuard busy([this](bool value) { setBusy(value); });
+			detection = detectGame(aiTargetFrom(cfg), image, context);
+			haveDetection = true;
+		} catch (const std::exception &e) {
+			if (!rule)
+				throw;
+			addHistory(QString("Situation nicht erkannt: %1").arg(e.what()));
+		}
+		const double seconds =
+			std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+		details = QString(" · %1 s").arg(QString::number(seconds, 'f', 1).replace('.', ','));
+		if (haveDetection && detection.model != cfg.activeModel())
+			details += " · Ersatzmodell " + qstr(detection.model);
+	}
+	const int percent = haveDetection ? qRound(detection.confidence * 100) : 0;
+	const bool sure = haveDetection && percent >= cfg.minConfidence;
+
 	std::string target;
 	std::string alternative; // zweiter Name für die Kategoriesuche
 	bool certain = false;
 
-	if (const GameRule *rule = matchRule(cfg, apps, foreground)) {
+	if (rule) {
 		// Feste Zuordnung: sicher, schnell und ohne KI
 		target = rule->category;
 		certain = true;
@@ -371,69 +475,58 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 			detection_ = label + " (Zuordnung)";
 			detectionReason_ = "Feste Zuordnung für " + qstr(rule->executable);
 			detectionTime_ = QTime::currentTime().toString("HH:mm:ss");
+			scene_ = sure ? qstr(detection.scene) : QString();
 		}
 		setNotice({}, false);
 		emit statusChanged();
 		if (dryRun || label != lastDetectionLabel_)
-			addHistory((dryRun ? "Test: " : "Erkannt: ") + label + " · Zuordnung " +
-				   qstr(rule->executable));
+			addHistory((dryRun ? "Test: " : "Erkannt: ") + label + " · Zuordnung " + qstr(rule->executable) +
+				   (rule->windowTitle.empty() ? QString() : " („" + qstr(rule->windowTitle) + "“)"));
 		lastDetectionLabel_ = label;
-		try {
-			const QImage frame = grabFrame(cfg.sourceName, cfg.imageWidth);
-			if (!frame.isNull())
-				emit previewChanged(frame);
-		} catch (const std::exception &) {
-			// Vorschau ist hier nur Beiwerk
-		}
-		if (dryRun)
-			return;
 	} else {
-		QImage frame;
-		try {
-			frame = grabFrame(cfg.sourceName, cfg.imageWidth);
-		} catch (const std::runtime_error &e) {
-			setNotice(e.what(), true);
-			return;
-		}
-		if (frame.isNull() || isBlack(frame)) {
-			setNotice("Kein Bild (Quelle leer oder schwarz) – übersprungen", true);
-			return;
-		}
-		emit previewChanged(frame);
-		const EncodedImage image = encodeImage(frame);
-		const std::string hint = cfg.sendWindowHint ? appHint(apps, foreground) : std::string();
-
-		Detection detection;
-		const auto started = std::chrono::steady_clock::now();
-		{
-			BusyGuard busy([this](bool value) { setBusy(value); });
-			detection = detectGame(aiTargetFrom(cfg), image, hint);
-		}
-		const double seconds =
-			std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-
 		const QString label = detection.isGame ? qstr(detection.category) : QStringLiteral("kein Spiel");
-		const int percent = qRound(detection.confidence * 100);
 		const QString labelWithConfidence = QString("%1 (%2 %)").arg(label).arg(percent);
-		QString details = QString(" · %1 s").arg(QString::number(seconds, 'f', 1).replace('.', ','));
-		if (detection.model != cfg.activeModel())
-			details += " · Ersatzmodell " + qstr(detection.model);
 		{
 			std::lock_guard lock(mutex_);
 			detection_ = labelWithConfidence;
 			detectionReason_ = qstr(detection.reason);
 			detectionTime_ = QTime::currentTime().toString("HH:mm:ss");
+			scene_ = qstr(detection.scene);
 		}
 		setNotice({}, false);
 		emit statusChanged();
 		if (dryRun || label != lastDetectionLabel_)
 			addHistory((dryRun ? "Test: " : "Erkannt: ") + labelWithConfidence + details);
 		lastDetectionLabel_ = label;
+	}
 
-		if (dryRun)
-			return;
+	// Situation und Stichwörter im Verlauf (nur wenn sich etwas ändert)
+	if (haveDetection && sure && !detection.scene.empty() && (dryRun || detection.scene != lastScene_)) {
+		QString line = "Situation: " + qstr(detection.scene);
+		if (detection.progressChanged)
+			line += " (neuer Abschnitt)";
+		addHistory(line);
+		lastScene_ = detection.scene;
+	}
+	if (dryRun && !speech.empty()) {
+		QStringList words;
+		for (const std::string &keyword :
+		     speechKeywords(cfg, haveDetection && detection.isGame ? detection.category : std::string()))
+			words << qstr(keyword);
+		addHistory("Stichwörter aus der Stimme: " + (words.isEmpty() ? QStringLiteral("–") : words.join(", ")));
+	}
+
+	if (dryRun) {
+		// Im Test zeigen, was der Steam-Abgleich sagen würde
+		if (!rule && haveDetection && detection.isGame && cfg.verifyWithDatabase)
+			verifyWithSteam(cfg, image, detection);
+		return;
+	}
+
+	if (!rule) {
 		if (percent < cfg.minConfidence) {
 			resetCandidate();
+			progressHits_ = 0;
 			return;
 		}
 		target = detection.isGame ? detection.category : cfg.idleCategory;
@@ -460,6 +553,9 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		if (immediate)
 			addHistory("Kategorie ist bereits „" + qstr(category->name) + "“");
 		resetCandidate();
+		lastBlocked_.clear();
+		if (haveDetection && sure)
+			maybeProgressTitle(cfg, detection, rule);
 		return;
 	}
 
@@ -469,6 +565,33 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		if (holdUntil_ && std::chrono::steady_clock::now() < *holdUntil_) {
 			resetCandidate();
 			return;
+		}
+	}
+
+	// Gesperrte Kategorien: darauf stellt die KI nie um (feste Zuordnungen schon)
+	if (!certain && isBlocked(cfg, category->name)) {
+		if (lastBlocked_ != category->name)
+			addHistory("„" + qstr(category->name) + "“ ist gesperrt – kein Wechsel");
+		lastBlocked_ = category->name;
+		resetCandidate();
+		return;
+	}
+
+	// Vor einem Wechsel per KI: mit Screenshots aus dem Steam-Shop gegenprüfen
+	if (!certain && detection.isGame && cfg.verifyWithDatabase) {
+		const std::optional<std::string> verdict = verifyWithSteam(cfg, image, detection);
+		if (verdict && verdict->empty()) {
+			resetCandidate();
+			return;
+		}
+		if (verdict && !sameName(*verdict, category->name)) {
+			std::optional<Category> replacement = twitch_.findCategory(*verdict);
+			if (replacement)
+				category = replacement;
+			if (sameName(category->name, *knownCategory_)) {
+				resetCandidate();
+				return;
+			}
 		}
 	}
 
@@ -486,7 +609,129 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 				   .arg(needed));
 		return;
 	}
-	apply(cfg, *category);
+	apply(cfg, *category, sure ? detection.scene : std::string(), speechKeywords(cfg, category->name),
+	      certain ? rule : nullptr);
+}
+
+std::optional<std::string> Switcher::verifyWithSteam(const Settings &cfg, const EncodedImage &image,
+						     const Detection &detection)
+{
+	const std::string main = detection.category.empty() ? detection.game : detection.category;
+	const auto now = std::chrono::steady_clock::now();
+	auto known = verdicts_.find(lowerKey(main));
+	if (known != verdicts_.end()) {
+		if (now < known->second.second)
+			return known->second.first;
+		verdicts_.erase(known);
+	}
+
+	// Erst das erkannte Spiel, bei Ablehnung die Alternativen der KI
+	std::vector<std::string> names{main};
+	for (const std::string &alternative : detection.alternatives) {
+		if (names.size() < 3 && std::none_of(names.begin(), names.end(), [&](const std::string &name) {
+			    return sameName(name, alternative);
+		    }))
+			names.push_back(alternative);
+	}
+
+	std::optional<std::string> result;
+	for (size_t i = 0; i < names.size(); i++) {
+		std::optional<ReferenceGame> reference = steamReference(names[i]);
+		if (!reference && i == 0 && !detection.game.empty() && !sameName(detection.game, main))
+			reference = steamReference(detection.game);
+		if (!reference) {
+			// Ohne Steam-Bilder (z. B. Konsolenspiel) lässt sich das erkannte Spiel nicht prüfen
+			if (i == 0)
+				return std::nullopt;
+			continue;
+		}
+
+		Verification verification;
+		const auto started = std::chrono::steady_clock::now();
+		try {
+			BusyGuard busy([this](bool value) { setBusy(value); });
+			verification = verifyGame(aiTargetFrom(cfg), image, encodeImage(referenceSheet(*reference)),
+						  reference->name);
+		} catch (const std::exception &e) {
+			addHistory(QString("Steam-Abgleich übersprungen: %1").arg(e.what()));
+			return std::nullopt;
+		}
+		const QString seconds =
+			QString::number(std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count(),
+					'f', 1)
+				.replace('.', ',');
+		addHistory(QString("Steam-Abgleich „%1“: %2 · %3 s")
+				   .arg(qstr(reference->name), verification.sameGame ? "passt" : "passt nicht", seconds));
+		if (verification.sameGame) {
+			result = names[i];
+			break;
+		}
+	}
+
+	if (!result) {
+		addHistory("Kein Wechsel – das Bild passt zu keinem der vermuteten Spiele");
+		result = std::string();
+	}
+	verdicts_[lowerKey(main)] = {*result, now + (result->empty() ? kRejectionValid : kVerdictValid)};
+	return result;
+}
+
+void Switcher::maybeProgressTitle(const Settings &cfg, const Detection &detection, const GameRule *rule)
+{
+	if (!cfg.progressTitles || cfg.titleMode == TitleMode::Keep || !detection.isGame || detection.scene.empty()) {
+		progressHits_ = 0;
+		return;
+	}
+	if (titleScene_.empty()) {
+		// Ausgangspunkt merken – verglichen wird ab der nächsten Prüfung
+		titleScene_ = detection.scene;
+		return;
+	}
+	if (!detection.progressChanged) {
+		progressHits_ = 0;
+		progressWaitLogged_ = false;
+		return;
+	}
+	progressHits_++;
+	if (progressHits_ < cfg.confirmations) {
+		addHistory(QString("Neuer Abschnitt „%1“ vorgemerkt (%2/%3)")
+				   .arg(qstr(detection.scene))
+				   .arg(progressHits_)
+				   .arg(cfg.confirmations));
+		return;
+	}
+	const auto now = std::chrono::steady_clock::now();
+	const auto minimum = std::chrono::minutes(cfg.progressMinutes);
+	if (lastTitleChange_ && now - *lastTitleChange_ < minimum) {
+		if (!progressWaitLogged_) {
+			const auto left = std::chrono::duration_cast<std::chrono::minutes>(minimum - (now - *lastTitleChange_));
+			addHistory(QString("Neuer Abschnitt „%1“ – Titel frühestens in %2 min")
+					   .arg(qstr(detection.scene))
+					   .arg(left.count() + 1));
+			progressWaitLogged_ = true;
+		}
+		return;
+	}
+
+	ChannelInfo channel = twitch_.getChannel();
+	const std::vector<std::string> keywords = speechKeywords(cfg, channel.gameName);
+	const std::string title = rule && !qstr(rule->title).trimmed().isEmpty()
+					  ? composeTitle(cfg, fillTemplate(rule->title, channel.gameName, detection.scene,
+									   keywords))
+					  : makeTitle(cfg, channel.gameName, detection.scene, keywords, channel.title);
+	progressHits_ = 0;
+	progressWaitLogged_ = false;
+	titleScene_ = detection.scene;
+	lastTitleChange_ = now;
+	if (title.empty() || title == channel.title)
+		return;
+	twitch_.updateTitle(title);
+	{
+		std::lock_guard lock(mutex_);
+		title_ = qstr(title);
+	}
+	emit statusChanged();
+	addHistory("Titel angepasst (neuer Abschnitt): " + qstr(title));
 }
 
 void Switcher::applyManual(const Settings &cfg, const std::string &name)
@@ -512,10 +757,58 @@ void Switcher::applyManual(const Settings &cfg, const std::string &name)
 	addHistory("Manuell korrigiert: " + qstr(category->name) + " – die KI stellt 15 Minuten nicht um");
 	if (!knownCategory_)
 		refreshChannel();
-	apply(cfg, *category);
+	apply(cfg, *category, {}, {}, nullptr);
 }
 
-void Switcher::apply(const Settings &cfg, const Category &category)
+std::vector<std::string> Switcher::speechKeywords(const Settings &cfg, const std::string &game)
+{
+	if (!cfg.voiceEnabled || recentSpeech_.empty() || cfg.titleMode == TitleMode::Keep)
+		return {};
+	try {
+		BusyGuard busy([this](bool value) { setBusy(value); });
+		return extractKeywords(aiTargetFrom(cfg), recentSpeech_, game.empty() ? std::string("-") : game,
+				       titleLanguageName(cfg));
+	} catch (const std::exception &e) {
+		addHistory(QString("Stichwörter aus der Stimme fehlgeschlagen: %1").arg(e.what()));
+		return {};
+	}
+}
+
+std::string Switcher::makeTitle(const Settings &cfg, const std::string &game, const std::string &scene,
+				const std::vector<std::string> &keywords, const std::string &previousTitle)
+{
+	if (cfg.titleMode == TitleMode::Keep)
+		return {};
+	std::string core;
+	if (cfg.titleMode == TitleMode::Ai) {
+		TitleRequest request;
+		request.game = game;
+		request.scene = scene;
+		request.keywords = keywords;
+		request.style = titleStyleFor(cfg);
+		request.previousTitle = previousTitle;
+		request.maxLength = coreTitleLimit(cfg);
+		request.language = titleLanguageName(cfg);
+		request.emojis = cfg.titleEmojis;
+		if (!qstr(cfg.titlePrefix).trimmed().isEmpty())
+			request.fixedParts += "am Anfang „" + cfg.titlePrefix + "“";
+		if (!qstr(cfg.titleSuffix).trimmed().isEmpty())
+			request.fixedParts += std::string(request.fixedParts.empty() ? "" : ", ") + "am Ende „" +
+					      cfg.titleSuffix + "“";
+		try {
+			BusyGuard busy([this](bool value) { setBusy(value); });
+			core = writeTitle(aiTargetFrom(cfg), request);
+		} catch (const std::exception &e) {
+			addHistory(QString("KI-Titel fehlgeschlagen (%1) – nehme die Vorlage").arg(e.what()));
+		}
+	}
+	if (core.empty())
+		core = fillTemplate(cfg.titleTemplate, game, scene, keywords);
+	return core.empty() ? std::string() : composeTitle(cfg, core);
+}
+
+void Switcher::apply(const Settings &cfg, const Category &category, const std::string &scene,
+		     const std::vector<std::string> &keywords, const GameRule *rule)
 {
 	resetCandidate();
 	ChannelInfo channel = twitch_.getChannel();
@@ -531,19 +824,23 @@ void Switcher::apply(const Settings &cfg, const Category &category)
 	}
 
 	std::string title;
-	if (cfg.titleMode == TitleMode::Ai) {
-		try {
-			BusyGuard busy([this](bool value) { setBusy(value); });
-			title = writeTitle(aiTargetFrom(cfg), category.name, cfg.titleStyle, channel.title);
-		} catch (const std::exception &e) {
-			addHistory(QString("KI-Titel fehlgeschlagen (%1) – nehme die Vorlage").arg(e.what()));
-		}
-	}
-	if (cfg.titleMode != TitleMode::Keep && title.empty())
-		title = qstr(cfg.titleTemplate).replace("{game}", qstr(category.name)).trimmed().toStdString();
+	if (rule && !qstr(rule->title).trimmed().isEmpty() && cfg.titleMode != TitleMode::Keep)
+		title = composeTitle(cfg, fillTemplate(rule->title, category.name, scene, keywords));
+	else
+		title = makeTitle(cfg, category.name, scene, keywords, channel.title);
 
-	twitch_.updateChannel(category.id, title);
+	std::vector<std::string> tags = splitList(cfg.twitchTags);
+	if (rule) {
+		for (const std::string &tag : splitList(rule->tags))
+			tags.push_back(tag);
+	}
+	tags = cleanTags(tags);
+	twitch_.updateChannel(category.id, title, tags);
 	knownCategory_ = category.name;
+	titleScene_ = scene;
+	progressHits_ = 0;
+	progressWaitLogged_ = false;
+	lastTitleChange_ = std::chrono::steady_clock::now();
 	{
 		std::lock_guard lock(mutex_);
 		category_ = qstr(category.name);
@@ -551,7 +848,11 @@ void Switcher::apply(const Settings &cfg, const Category &category)
 			title_ = qstr(title);
 	}
 	emit statusChanged();
-	addHistory("Twitch umgestellt: " + qstr(category.name) + (title.empty() ? "" : " · " + qstr(title)));
+	QStringList tagNames;
+	for (const std::string &tag : tags)
+		tagNames << qstr(tag);
+	addHistory("Twitch umgestellt: " + qstr(category.name) + (title.empty() ? "" : " · " + qstr(title)) +
+		   (tagNames.isEmpty() ? QString() : " · Tags: " + tagNames.join(", ")));
 }
 
 // -- Twitch-Login -----------------------------------------------------------------

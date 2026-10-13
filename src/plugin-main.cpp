@@ -21,6 +21,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "http.hpp"
 #include "settings-dialog.hpp"
 #include "switcher.hpp"
+#include "voice.hpp"
 
 #include <obs-frontend-api.h>
 #include <obs-module.h>
@@ -37,6 +38,56 @@ namespace {
 
 kgs::Switcher *g_switcher = nullptr;
 QPointer<QWidget> g_dock;
+
+// Tastenkürzel (Einstellungen → Tastenkürzel); die Belegung speichert OBS mit der Szenensammlung
+struct Hotkey {
+	const char *name;
+	const char *description;
+	void (*action)();
+	obs_hotkey_id id = OBS_INVALID_HOTKEY_ID;
+};
+Hotkey g_hotkeys[] = {
+	{"kgs_check_now", "KI Game Switcher: Jetzt prüfen", [] { g_switcher->checkNow(); }},
+	{"kgs_test", "KI Game Switcher: Test (nichts ändern)", [] { g_switcher->testNow(); }},
+	{"kgs_toggle", "KI Game Switcher: Pausieren / Fortsetzen",
+	 [] { g_switcher->setEnabled(!g_switcher->settings().enabled); }},
+};
+
+void onHotkey(void *data, obs_hotkey_id, obs_hotkey_t *, bool pressed)
+{
+	if (pressed && g_switcher)
+		static_cast<Hotkey *>(data)->action();
+}
+
+void registerHotkeys()
+{
+	for (Hotkey &hotkey : g_hotkeys)
+		hotkey.id = obs_hotkey_register_frontend(hotkey.name, hotkey.description, onHotkey, &hotkey);
+}
+
+void unregisterHotkeys()
+{
+	for (Hotkey &hotkey : g_hotkeys) {
+		if (hotkey.id != OBS_INVALID_HOTKEY_ID)
+			obs_hotkey_unregister(hotkey.id);
+		hotkey.id = OBS_INVALID_HOTKEY_ID;
+	}
+}
+
+void onSave(obs_data_t *data, bool saving, void *)
+{
+	for (Hotkey &hotkey : g_hotkeys) {
+		if (saving) {
+			obs_data_array_t *bindings = obs_hotkey_save(hotkey.id);
+			obs_data_set_array(data, hotkey.name, bindings);
+			obs_data_array_release(bindings);
+		} else {
+			obs_data_array_t *bindings = obs_data_get_array(data, hotkey.name);
+			obs_hotkey_load(hotkey.id, bindings);
+			obs_data_array_release(bindings);
+		}
+	}
+}
 
 // OBS blendet neue Plugin-Docks standardmäßig aus. Beim allerersten Start zeigen wir es einmal,
 // danach merkt sich OBS selbst, ob es offen ist.
@@ -70,6 +121,8 @@ void onFrontendEvent(enum obs_frontend_event event, void *)
 	case OBS_FRONTEND_EVENT_EXIT:
 		// Vor dem Abbau der Grafik anhalten, damit der Worker nicht mehr rendert
 		g_switcher->stop();
+		// Audioquelle loslassen, solange sie noch existiert
+		kgs::voice::shutdown();
 		break;
 	default:
 		break;
@@ -109,6 +162,8 @@ bool obs_module_load(void)
 		obs_frontend_add_tools_menu_item("KI Game Switcher – Einstellungen", openSettings, nullptr);
 	}
 	obs_frontend_add_event_callback(onFrontendEvent, nullptr);
+	registerHotkeys();
+	obs_frontend_add_save_callback(onSave, nullptr);
 
 	obs_log(LOG_INFO, "geladen (Version %s)", PLUGIN_VERSION);
 	return true;
@@ -117,11 +172,14 @@ bool obs_module_load(void)
 void obs_module_unload(void)
 {
 	obs_frontend_remove_event_callback(onFrontendEvent, nullptr);
+	obs_frontend_remove_save_callback(onSave, nullptr);
+	unregisterHotkeys();
 	if (g_switcher) {
 		g_switcher->stop();
 		delete g_switcher;
 		g_switcher = nullptr;
 	}
+	kgs::voice::shutdown();
 	kgs::captureInfoStop();
 	kgs::httpGlobalCleanup();
 	obs_log(LOG_INFO, "entladen");

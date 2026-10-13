@@ -24,8 +24,11 @@ Das OBS-Plugin erkennt per KI, was gerade in deinem Stream läuft, und stellt **
 | 🧠 **KI auf deinem PC** | Standardmäßig rechnet Ollama lokal auf deiner Grafikkarte: kostenlos, ohne Account, ohne Limits. Kein Bild verlässt deinen PC. |
 | 👀 **Erkennt am echten Streambild** | Die KI sieht genau das, was deine Zuschauer sehen. Das klappt auch mit Konsole, Capture-Card oder Emulator. |
 | 🛡️ **Kein nervöses Hin- und Herspringen** | Gewechselt wird erst nach mehreren sicheren Erkennungen hintereinander. Ein kurzer Alt-Tab zu Discord löst nichts aus. |
-| ✍️ **Titel in deinem Stil** | Die KI schreibt ihn passend zum Spiel, oder du nimmst eine Vorlage wie `{game} – live! 🎮`. |
-| 🎯 **100 % sicher mit Zuordnungen** | `javaw.exe → Minecraft` einmal festlegen, dann wird ganz ohne KI sofort umgestellt. |
+| ✍️ **Titel in deinem Stil** | Fertige Stile (Locker, Hype, Witzig, Sachlich), feste Teile wie `[DE]` oder `\| !discord`, die immer dranhängen, Deutsch oder Englisch, Emojis an oder aus. |
+| 🗺️ **Titel folgt deinem Fortschritt** | Neues Level, Bosskampf, neue Welt? Der Titel zieht mit, ohne dass die Kategorie wechselt. |
+| 🎙️ **Hört auf deine Stimme** | Sagst du „heute Hardcore-Run“, landet das im Titel. Die Spracherkennung läuft lokal, nichts wird aufgezeichnet. |
+| 🎯 **100 % sicher mit Zuordnungen** | `javaw.exe → Minecraft` einmal festlegen, dann wird ganz ohne KI sofort umgestellt. Bei Emulatoren auch mehrere Spiele pro Programm, je mit eigenem Titel und eigenen Tags. |
+| 🔎 **Doppelt geprüft** | Vor einem Wechsel vergleicht die KI das Bild mit Screenshots aus dem Steam-Shop. Verwechslungen fallen so meist auf. |
 | 🖥️ **Eigenes Dock in OBS** | Live-Status, Vorschaubild, Verlauf, „Jetzt prüfen“, „Test“, Pause und „Falsch erkannt?“ |
 
 ## ⚙️ So funktioniert's
@@ -96,6 +99,9 @@ Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei 
 ## 🎯 Genauer erkennen
 
 - **Feste Zuordnungen:** Im Reiter **Zuordnungen** legst du fest, welches Programm zu welcher Twitch-Kategorie gehört. „Aktuelle Aufnahmen übernehmen“ trägt die gerade aufgenommenen Programme automatisch ein.
+- **Emulatoren:** Ein Programm, viele Spiele. Trag den Emulator mehrmals ein, jeweils mit einem Teil des Fenstertitels, z. B. `Dolphin.exe` + „Mario Kart“ → *Mario Kart: Double Dash!!* und `Dolphin.exe` + „Sunshine“ → *Super Mario Sunshine*. Bei Dolphin, Citron, Ryujinx, RetroArch, PCSX2 und Co. schlägt das Plugin den Spielnamen aus dem Fenstertitel schon vor.
+- **Steam-Abgleich:** Bevor die KI das Spiel wechselt, holt das Plugin zwei Screenshots des vermuteten Spiels aus dem Steam-Shop und lässt die KI vergleichen. Passt es nicht, prüft es die Alternativen der KI. Passt keine, bleibt alles, wie es ist. Das dauert pro Wechsel ein paar Sekunden länger, abschaltbar unter **Erkennung**. Spiele, die es nicht bei Steam gibt, werden ohne Abgleich umgestellt.
+- **Gesperrte Kategorien:** Unter **Erkennung → Nie umstellen auf** stehen Kategorien, auf die die KI nie wechseln darf, z. B. ein Spiel, mit dem sie deins gern verwechselt.
 - **Falsch erkannt?** Im Dock setzt du die richtige Kategorie sofort. Auf Wunsch merkt sich das Plugin die Zuordnung. Ohne „Merken“ stellt die KI danach 15 Minuten lang nicht um.
 - **Programm-Hinweise:** Die KI erfährt, welche Programme OBS aufnimmt, samt Fenstertitel. Bei Emulatoren wie Dolphin steht dort meist das laufende Spiel.
 - **Nur die Spielaufnahme zeigen:** Unter **Erkennung → Bildquelle** deine Spielaufnahme wählen. Dann lenken Webcam, Overlays und Browserfenster nicht ab.
@@ -111,8 +117,19 @@ Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei 
 | | Bestätigungen | So oft hintereinander muss ein neues Spiel erkannt werden (Standard 2) |
 | | Ohne Spiel | z. B. `Just Chatting`, wenn kein Spiel zu sehen ist. Leer lassen, dann bleibt die Kategorie. |
 | | Aktives Fenster mitsenden | Fenstertitel und Prozessname als Hinweis an die KI |
+| | Steam-Abgleich | Vor dem Umstellen mit Steam-Screenshots vergleichen (Standard an) |
+| | Nie umstellen auf | Kategorien, auf die die KI nie wechselt |
+| Twitch | Tags bei jedem Wechsel | z. B. `Deutsch, Gaming`. Leer = deine Tags bleiben unangetastet. |
 | Titel | Titel | KI schreibt ihn, eine Vorlage wird verwendet oder der Titel bleibt unverändert |
-| | Stil für KI-Titel | Freitext, z. B. „Kurz und witzig, immer mit ‚!discord‘ am Ende“ |
+| | Stil | Locker, Hype, Witzig, Sachlich oder nur eigene Ergänzungen. Keine langen Anweisungen nötig. |
+| | Sprache / Emojis | Deutsch oder Englisch. Mit „Emojis aus“ entfernt das Plugin Emojis selbst, egal was das Modell schreibt. |
+| | Vorlage | Platzhalter `{game}`, `{scene}` (Situation im Spiel) und `{keywords}` (Stichwörter aus deiner Stimme) |
+| | Immer vorne / hinten | Feste Teile wie `[DE]` oder `\| !discord`. Das Plugin setzt sie selbst an jeden Titel. |
+| | Spielfortschritt | Titel auch bei neuem Abschnitt im selben Spiel anpassen, frühestens alle 15 Minuten |
+| Stimme | Stimme mithören | Lokale Spracherkennung (whisper.cpp), Mikrofon und Modell wählbar. Standard aus. |
+| Zuordnungen | | Programm, Fenstertitel enthält (für Emulatoren), Kategorie, eigener Titel, Tags |
+
+**Tastenkürzel:** Unter **OBS-Einstellungen → Tastenkürzel** findest du „KI Game Switcher: Jetzt prüfen“, „Test“ und „Pausieren / Fortsetzen“.
 
 </details>
 
@@ -120,7 +137,9 @@ Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei 
 
 - **Mit Ollama (Standard) verlässt kein Bild deinen PC.**
 - Bei Online-Anbietern geht pro Prüfung ein verkleinertes Standbild deines Streams an den Anbieter. Das ist genau das, was deine Zuschauer ohnehin sehen. Ist „Aktives Fenster mitsenden“ an, kommen Fenstertitel und Prozessname dazu. Fenstertitel können private Infos enthalten, z. B. Browser-Tabs. Es gelten die Datenschutzbedingungen des Anbieters.
-- Twitch erlaubt dem Plugin nur, Titel und Kategorie deines Kanals zu ändern (`channel:manage:broadcast`).
+- **Stimme:** Die Spracherkennung läuft lokal auf dem Prozessor. Es wird nichts aufgezeichnet oder gespeichert. Im Arbeitsspeicher liegen nur die letzten zwei Minuten Audio und der erkannte Text der letzten drei Minuten. Der Text geht nur dann an die gewählte KI, wenn ein neuer Titel geschrieben wird, bei Ollama also nirgendwohin. Das Sprachmodell wird beim Einschalten einmalig von huggingface.co geladen.
+- **Steam-Abgleich:** Das Plugin fragt beim Steam-Shop nach dem vermuteten Spielnamen und lädt zwei öffentliche Screenshots. Dein Streambild geht dabei nicht an Steam.
+- Twitch erlaubt dem Plugin nur, Titel, Kategorie und Tags deines Kanals zu ändern (`channel:manage:broadcast`).
 - API-Keys und der Twitch-Login liegen nur lokal in `%APPDATA%\obs-studio\plugin_config\ki-game-switcher\`. **Trennen** löscht den Twitch-Login.
 
 ## 🛠️ Fehlerbehebung
@@ -157,7 +176,7 @@ cmake --build --preset windows-x64 --config RelWithDebInfo
 Die DLL landet in `build_x64/RelWithDebInfo/`. Den Installer baust du mit [Inno Setup 6](https://jrsoftware.org/isinfo.php), nachdem du das Plugin mit `cmake --install build_x64 --config RelWithDebInfo --prefix release/RelWithDebInfo` bereitgelegt hast:
 
 ```bash
-ISCC.exe /DAppVersion=1.0.0 installer/ki-game-switcher.iss
+ISCC.exe /DAppVersion=1.1.0 installer/ki-game-switcher.iss
 ```
 
 Für macOS und Linux gibt es die Presets `macos` und `ubuntu-x86_64`. Die GitHub-Actions-Workflows bauen alle drei Plattformen samt Windows-Setup automatisch und hängen bei Tags die Pakete an ein Release.

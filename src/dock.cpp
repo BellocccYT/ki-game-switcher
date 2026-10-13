@@ -41,6 +41,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <map>
 #include <set>
 
 namespace kgs {
@@ -83,13 +84,18 @@ SwitcherDock::SwitcherDock(Switcher *switcher, QWidget *parent) : QWidget(parent
 	layout->addWidget(preview_, 3);
 
 	auto *form = new QFormLayout;
+	form_ = form;
 	form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 	detection_ = valueLabel();
 	category_ = valueLabel();
 	title_ = valueLabel();
+	scene_ = valueLabel();
+	speech_ = valueLabel();
 	form->addRow("Erkannt:", detection_);
+	form->addRow("Situation:", scene_);
 	form->addRow("Kategorie:", category_);
 	form->addRow("Titel:", title_);
+	form->addRow("Stimme:", speech_);
 	layout->addLayout(form);
 
 	auto *twitchRow = new QHBoxLayout;
@@ -193,7 +199,12 @@ void SwitcherDock::refresh()
 	detection_->setText(s.detection.isEmpty() ? "–" : s.detection);
 	detection_->setToolTip(
 		s.detectionReason.isEmpty() ? QString() : QString("%1 (%2)").arg(s.detectionReason, s.detectionTime));
+	scene_->setText(s.scene.isEmpty() ? "–" : s.scene);
 	category_->setText(s.category.isEmpty() ? "–" : s.category);
+	// Stimme: zuletzt Verstandenes, sonst der Status (z. B. Download des Sprachmodells)
+	form_->setRowVisible(speech_, s.voiceEnabled);
+	speech_->setText(s.speech.isEmpty() ? s.voiceStatus : "„" + s.speech + "“");
+	speech_->setToolTip(s.voiceStatus);
 	title_->setText(s.title.isEmpty() ? "–" : s.title);
 
 	if (s.loginRunning) {
@@ -308,9 +319,31 @@ void SwitcherDock::onCorrect()
 	remember->setCurrentIndex(preselect);
 	form->addRow("Merken für:", remember);
 
+	// Emulatoren: nur für dieses Spiel merken (Teil des Fenstertitels), andere Spiele bleiben unberührt
+	std::map<QString, QString> emulatorGames;
+	for (const CapturedApp &app : activeCapturedApps()) {
+		if (isEmulator(app.executable))
+			emulatorGames[QString::fromStdString(app.executable)] =
+				QString::fromStdString(gameFromWindowTitle(app.title));
+	}
+	auto *windowTitle = new QLineEdit;
+	windowTitle->setPlaceholderText("Teil des Fenstertitels, z. B. Mario Kart");
+	form->addRow("Nur wenn Fenstertitel enthält:", windowTitle);
+	auto updateWindowTitle = [form, remember, windowTitle, emulatorGames, category] {
+		const auto it = emulatorGames.find(remember->currentData().toString());
+		const bool emulator = it != emulatorGames.end();
+		form->setRowVisible(windowTitle, emulator);
+		windowTitle->setText(emulator ? it->second : QString());
+		if (emulator && category->text().trimmed().isEmpty())
+			category->setText(it->second);
+	};
+	connect(remember, &QComboBox::currentIndexChanged, dialog, updateWindowTitle);
+	updateWindowTitle();
+
 	auto *info =
 		new QLabel("Mit „Merken“ stellt das Plugin künftig sofort und ohne KI auf dieses Spiel um, "
-			   "sobald OBS das Programm aufnimmt. Ohne Merken stellt die KI 15 Minuten lang nicht um.");
+			   "sobald OBS das Programm aufnimmt – bei Emulatoren nur, wenn der Fenstertitel passt. Ohne "
+			   "Merken stellt die KI 15 Minuten lang nicht um.");
 	info->setWordWrap(true);
 	form->addRow(info);
 
@@ -321,10 +354,11 @@ void SwitcherDock::onCorrect()
 	connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
 	form->addRow(buttons);
 
-	connect(dialog, &QDialog::accepted, this, [this, category, remember] {
+	connect(dialog, &QDialog::accepted, this, [this, category, remember, windowTitle] {
 		if (switcher_ && !category->text().trimmed().isEmpty())
 			switcher_->correctCategory(category->text().trimmed().toStdString(),
-						   remember->currentData().toString().toStdString());
+						   remember->currentData().toString().toStdString(),
+						   windowTitle->text().trimmed().toStdString());
 	});
 	dialog->open();
 }

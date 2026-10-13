@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
+#include "ai-client.hpp"
 #include "settings.hpp"
 #include "twitch.hpp"
 
@@ -29,6 +30,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <chrono>
 #include <condition_variable>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -53,6 +55,10 @@ struct StatusSnapshot {
 	QString detectionTime;
 	QString category;    // aktuelle Twitch-Kategorie
 	QString title;       // aktueller Twitch-Titel
+	QString scene;       // Spielsituation laut KI, z. B. „Bosskampf gegen …“
+	QString speech;      // zuletzt erkannter Satz
+	QString voiceStatus; // z. B. „Hört zu: Mic/Aux“
+	bool voiceEnabled = false;
 	QString notice;      // letzter Fehler oder Hinweis
 	int holdMinutes = 0; // nach manueller Korrektur: so lange stellt die Automatik nicht um
 };
@@ -77,7 +83,8 @@ public:
 	void checkNow(); // sofort prüfen und ohne Bestätigungsrunden umstellen
 	void testNow();  // nur erkennen, nichts ändern
 	// Setzt die Kategorie von Hand; mit rememberExecutable wird daraus eine feste Zuordnung
-	void correctCategory(const std::string &category, const std::string &rememberExecutable);
+	void correctCategory(const std::string &category, const std::string &rememberExecutable,
+			     const std::string &rememberWindowTitle = {});
 	void connectTwitch();
 	void cancelTwitchLogin();
 	void disconnectTwitch();
@@ -95,7 +102,15 @@ private:
 
 	void run();
 	void check(const Settings &cfg, bool dryRun, bool immediate);
-	void apply(const Settings &cfg, const Category &category);
+	void apply(const Settings &cfg, const Category &category, const std::string &scene,
+		   const std::vector<std::string> &keywords, const GameRule *rule);
+	void maybeProgressTitle(const Settings &cfg, const Detection &detection, const GameRule *rule);
+	std::string makeTitle(const Settings &cfg, const std::string &game, const std::string &scene,
+			      const std::vector<std::string> &keywords, const std::string &previousTitle);
+	std::vector<std::string> speechKeywords(const Settings &cfg, const std::string &game);
+	// Ergebnis des Steam-Abgleichs: Name der Kategorie, auf die umgestellt werden darf; leer = abgelehnt
+	std::optional<std::string> verifyWithSteam(const Settings &cfg, const EncodedImage &image,
+						   const Detection &detection);
 	void applyManual(const Settings &cfg, const std::string &name);
 	void refreshChannel();
 	void loginTask(const std::string &clientId);
@@ -129,12 +144,23 @@ private:
 	QString category_;
 	QString title_;
 	QString notice_;
+	QString scene_;
+	QString speech_;
 
 	// Nur im Worker-Thread benutzt
 	std::optional<std::string> knownCategory_;
 	std::string candidate_;
 	int candidateHits_ = 0;
 	QString lastDetectionLabel_;
+	std::string lastScene_;  // zuletzt angezeigte Situation (für den Verlauf)
+	std::string lastBlocked_; // zuletzt gemeldete gesperrte Kategorie
+	std::string recentSpeech_; // was in den letzten Minuten gesagt wurde (für Stichwörter)
+	std::string titleScene_; // Situation, zu der der aktuelle Titel passt
+	int progressHits_ = 0;
+	bool progressWaitLogged_ = false;
+	std::optional<std::chrono::steady_clock::time_point> lastTitleChange_;
+	// Steam-Abgleich je erkanntem Namen: Ergebnis (leer = abgelehnt) und Ablaufzeit
+	std::map<std::string, std::pair<std::string, std::chrono::steady_clock::time_point>> verdicts_;
 
 	std::atomic<bool> refreshChannel_{true};
 	std::atomic<bool> loginRunning_{false};

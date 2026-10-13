@@ -41,11 +41,36 @@ const ProviderInfo &providerInfo(Provider provider);
 
 enum class TitleMode { Ai = 0, Template, Keep };
 
+// Fertige Stilvorgaben für KI-Titel, damit niemand lange Anweisungen schreiben muss
+struct TitlePreset {
+	const char *id;
+	const char *label;
+	const char *style; // Anweisung an die KI; leer = nur die eigenen Ergänzungen
+};
+const std::vector<TitlePreset> &titlePresets();
+const TitlePreset &titlePreset(const std::string &id);
+
+// Sprachmodelle für die lokale Spracherkennung (whisper.cpp)
+struct VoiceModelInfo {
+	const char *id;
+	const char *label;
+	const char *file; // Dateiname auf huggingface.co/ggerganov/whisper.cpp
+	int sizeMb;
+};
+const std::vector<VoiceModelInfo> &voiceModels();
+const VoiceModelInfo &voiceModel(const std::string &id);
+
 // Feste Zuordnung: Nimmt OBS dieses Programm auf, wird ohne KI auf die Kategorie umgestellt
 struct GameRule {
-	std::string executable; // z. B. „javaw.exe“
-	std::string category;   // z. B. „Minecraft“
+	std::string executable;  // z. B. „javaw.exe“
+	std::string category;    // z. B. „Minecraft“
+	std::string windowTitle; // nur wenn der Fenstertitel das enthält (Emulatoren: mehrere Spiele pro Programm)
+	std::string title;       // eigener Titel für dieses Spiel (Platzhalter wie in der Vorlage), leer = normal
+	std::string tags;        // zusätzliche Twitch-Tags, durch Komma getrennt
 };
+
+// Zerlegt „a, b; c“ bzw. mehrere Zeilen in einzelne, gekürzte Einträge
+std::vector<std::string> splitList(const std::string &text);
 
 struct ProviderSettings {
 	std::string apiKey;
@@ -68,13 +93,27 @@ struct Settings {
 	int confirmations = 2;
 	std::string idleCategory;
 	bool sendWindowHint = true;
+	bool verifyWithDatabase = true; // vor dem Umstellen mit Steam-Screenshots abgleichen
+	std::string blockedCategories;  // darauf stellt die KI nie um (Komma-Liste)
 	std::vector<GameRule> rules;
 
 	bool dockIntroduced = false; // Dock beim allerersten Start einmal einblenden
 
 	TitleMode titleMode = TitleMode::Ai;
 	std::string titleTemplate = "{game} – live! 🎮";
-	std::string titleStyle = "Kurz, locker und auf Deutsch, höchstens 80 Zeichen, gern ein passendes Emoji.";
+	std::string titlePreset = "locker";
+	std::string titleStyle; // eigene Ergänzungen zur Stilvorgabe
+	std::string titlePrefix; // steht immer vorne im Titel, egal welches Modell
+	std::string titleSuffix; // steht immer hinten im Titel, egal welches Modell
+	std::string titleLanguage = "de"; // „de“ oder „en“
+	bool titleEmojis = true;          // aus = das Plugin entfernt Emojis aus Titeln
+	std::string twitchTags;           // bei jedem Wechsel setzen (leer = Tags nicht anfassen)
+	bool progressTitles = true; // Titel auch bei Fortschritt im selben Spiel anpassen
+	int progressMinutes = 15;   // frühestens so oft
+
+	bool voiceEnabled = false;
+	std::string voiceSource; // leer = Mikrofon automatisch wählen
+	std::string voiceModel = "base";
 
 	const ProviderSettings &activeProvider() const { return providers[static_cast<int>(provider)]; }
 	std::string activeModel() const;

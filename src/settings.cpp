@@ -21,6 +21,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-module.h>
 #include <util/platform.h>
 
+#include <QRegularExpression>
+#include <QString>
+
 #include <algorithm>
 
 namespace kgs {
@@ -73,7 +76,62 @@ TitleMode titleModeFromId(const std::string &id)
 	return TitleMode::Ai;
 }
 
+const std::vector<TitlePreset> kTitlePresets = {
+	{"locker", "Locker",
+	 "Locker und einladend, wie ein gut gelaunter Streamer, der Lust auf den Stream macht. Ein passendes Emoji."},
+	{"hype", "Hype",
+	 "Energiegeladen und spannend, ein Wort darf in GROSSBUCHSTABEN stehen, ein bis zwei passende Emojis."},
+	{"witzig", "Witzig", "Humorvoll mit einem Wortspiel oder einem augenzwinkernden Kommentar zum Spiel oder zur Situation."},
+	{"sachlich", "Sachlich", "Klar und informativ: Spiel und aktuelle Situation, ohne Emojis und ohne Übertreibung."},
+	{"eigener", "Nur eigene Ergänzungen", ""},
+};
+
+const std::vector<VoiceModelInfo> kVoiceModels = {
+	{"base", "Schnell (Basis, 82 MB)", "ggml-base-q8_0.bin", 82},
+	{"small", "Genauer (Klein, 190 MB, mehr CPU-Last)", "ggml-small-q5_1.bin", 190},
+};
+
 } // namespace
+
+std::vector<std::string> splitList(const std::string &text)
+{
+	std::vector<std::string> items;
+	for (const QString &part :
+	     QString::fromStdString(text).split(QRegularExpression(QStringLiteral("[,;\\n]")), Qt::SkipEmptyParts)) {
+		const QString item = part.simplified();
+		if (!item.isEmpty())
+			items.push_back(item.toStdString());
+	}
+	return items;
+}
+
+const std::vector<TitlePreset> &titlePresets()
+{
+	return kTitlePresets;
+}
+
+const TitlePreset &titlePreset(const std::string &id)
+{
+	for (const TitlePreset &preset : kTitlePresets) {
+		if (id == preset.id)
+			return preset;
+	}
+	return kTitlePresets.front();
+}
+
+const std::vector<VoiceModelInfo> &voiceModels()
+{
+	return kVoiceModels;
+}
+
+const VoiceModelInfo &voiceModel(const std::string &id)
+{
+	for (const VoiceModelInfo &model : kVoiceModels) {
+		if (id == model.id)
+			return model;
+	}
+	return kVoiceModels.front();
+}
 
 const ProviderInfo &providerInfo(Provider provider)
 {
@@ -159,12 +217,16 @@ Settings loadSettings()
 	getInt("confirmations", s.confirmations, 1, 10);
 	getString("idle_category", s.idleCategory);
 	getBool("send_window_hint", s.sendWindowHint);
+	getBool("verify_with_database", s.verifyWithDatabase);
+	getString("blocked_categories", s.blockedCategories);
 	getBool("dock_introduced", s.dockIntroduced);
 
 	obs_data_array_t *rules = obs_data_get_array(data, "rules");
 	for (size_t i = 0; rules && i < obs_data_array_count(rules); i++) {
 		obs_data_t *rule = obs_data_array_item(rules, i);
-		GameRule entry{obs_data_get_string(rule, "executable"), obs_data_get_string(rule, "category")};
+		GameRule entry{obs_data_get_string(rule, "executable"), obs_data_get_string(rule, "category"),
+			       obs_data_get_string(rule, "window_title"), obs_data_get_string(rule, "title"),
+			       obs_data_get_string(rule, "tags")};
 		if (!entry.executable.empty() && !entry.category.empty())
 			s.rules.push_back(entry);
 		obs_data_release(rule);
@@ -176,7 +238,18 @@ Settings loadSettings()
 	if (!titleMode.empty())
 		s.titleMode = titleModeFromId(titleMode);
 	getString("title_template", s.titleTemplate);
+	getString("title_preset", s.titlePreset);
 	getString("title_style", s.titleStyle);
+	getString("title_prefix", s.titlePrefix);
+	getString("title_suffix", s.titleSuffix);
+	getString("title_language", s.titleLanguage);
+	getBool("title_emojis", s.titleEmojis);
+	getString("twitch_tags", s.twitchTags);
+	getBool("progress_titles", s.progressTitles);
+	getInt("progress_minutes", s.progressMinutes, 5, 240);
+	getBool("voice_enabled", s.voiceEnabled);
+	getString("voice_source", s.voiceSource);
+	getString("voice_model", s.voiceModel);
 
 	obs_data_release(data);
 	return s;
@@ -210,6 +283,8 @@ void saveSettings(const Settings &s)
 	obs_data_set_int(data, "confirmations", s.confirmations);
 	obs_data_set_string(data, "idle_category", s.idleCategory.c_str());
 	obs_data_set_bool(data, "send_window_hint", s.sendWindowHint);
+	obs_data_set_bool(data, "verify_with_database", s.verifyWithDatabase);
+	obs_data_set_string(data, "blocked_categories", s.blockedCategories.c_str());
 	obs_data_set_bool(data, "dock_introduced", s.dockIntroduced);
 
 	obs_data_array_t *rules = obs_data_array_create();
@@ -217,6 +292,9 @@ void saveSettings(const Settings &s)
 		obs_data_t *rule = obs_data_create();
 		obs_data_set_string(rule, "executable", entry.executable.c_str());
 		obs_data_set_string(rule, "category", entry.category.c_str());
+		obs_data_set_string(rule, "window_title", entry.windowTitle.c_str());
+		obs_data_set_string(rule, "title", entry.title.c_str());
+		obs_data_set_string(rule, "tags", entry.tags.c_str());
 		obs_data_array_push_back(rules, rule);
 		obs_data_release(rule);
 	}
@@ -224,7 +302,18 @@ void saveSettings(const Settings &s)
 	obs_data_array_release(rules);
 	obs_data_set_string(data, "title_mode", titleModeId(s.titleMode));
 	obs_data_set_string(data, "title_template", s.titleTemplate.c_str());
+	obs_data_set_string(data, "title_preset", s.titlePreset.c_str());
 	obs_data_set_string(data, "title_style", s.titleStyle.c_str());
+	obs_data_set_string(data, "title_prefix", s.titlePrefix.c_str());
+	obs_data_set_string(data, "title_suffix", s.titleSuffix.c_str());
+	obs_data_set_string(data, "title_language", s.titleLanguage.c_str());
+	obs_data_set_bool(data, "title_emojis", s.titleEmojis);
+	obs_data_set_string(data, "twitch_tags", s.twitchTags.c_str());
+	obs_data_set_bool(data, "progress_titles", s.progressTitles);
+	obs_data_set_int(data, "progress_minutes", s.progressMinutes);
+	obs_data_set_bool(data, "voice_enabled", s.voiceEnabled);
+	obs_data_set_string(data, "voice_source", s.voiceSource.c_str());
+	obs_data_set_string(data, "voice_model", s.voiceModel.c_str());
 
 	os_mkdirs(configPath("").c_str());
 	obs_data_save_json_safe(data, configPath("settings.json").c_str(), "tmp", "bak");
