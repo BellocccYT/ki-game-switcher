@@ -43,8 +43,15 @@ std::string listen(const std::string &hint);
 std::string status();   // z. B. „Hört zu: Mic/Aux“, „Sprachmodell wird geladen … 40 %“
 std::string lastText(); // zuletzt erkannter Satz für die Anzeige
 
-// Audioquellen, die als Mikrofon infrage kommen (für die Einstellungen)
-std::vector<std::string> audioSources();
+struct AudioSource {
+	std::string name;    // Name der Quelle in OBS
+	std::string device;  // Gerätename, z. B. „Mikrofon (beyerdynamic MMX 150)“; leer, wenn unbekannt
+	bool global = false; // Audiogerät aus den OBS-Einstellungen (z. B. Mic/Aux)
+};
+
+// Audioquellen, die als Mikrofon infrage kommen – die wahrscheinlichste zuerst. Globales Mic/Aux geht vor,
+// Ton von Capture-Cards (Elgato, HDMI …) landet hinten.
+std::vector<AudioSource> audioSources();
 
 // Beim Beenden von OBS: Audioquelle loslassen, Downloads beenden, Modell freigeben
 void shutdown();

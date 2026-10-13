@@ -480,8 +480,14 @@ QWidget *SettingsDialog::createVoiceTab()
 
 	voiceSource_ = new QComboBox;
 	voiceSource_->addItem("Automatisch (erstes Mikrofon)", QString());
-	for (const std::string &name : voice::audioSources())
-		voiceSource_->addItem(qstr(name), qstr(name));
+	for (const voice::AudioSource &source : voice::audioSources()) {
+		QString label = qstr(source.name);
+		if (!source.device.empty())
+			label += " – " + qstr(source.device);
+		if (source.global)
+			label += " (OBS-Audiogerät)";
+		voiceSource_->addItem(label, qstr(source.name));
+	}
 	if (!settings_.voiceSource.empty() && voiceSource_->findData(qstr(settings_.voiceSource)) < 0) {
 		// Auch andere Audioquellen sind erlaubt (z. B. ein eigener Mikrofon-Filter-Mix)
 		obs_source_t *source = obs_get_source_by_name(settings_.voiceSource.c_str());

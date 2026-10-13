@@ -80,6 +80,7 @@ std::string g_sourceSetting;
 std::string g_modelId = "base";
 obs_source_t *g_source = nullptr;
 std::string g_sourceName;
+std::string g_sourceDevice;
 bool g_sourceMissing = false;
 
 // -- Download des Sprachmodells
@@ -112,6 +113,75 @@ bool isMicrophone(obs_source_t *source)
 	const char *id = obs_source_get_unversioned_id(source);
 	const std::string type = id ? id : "";
 	return type.find("input_capture") != std::string::npos || type.find("jack") != std::string::npos;
+}
+
+// Gerätename der Audioquelle, wie ihn die OBS-Eigenschaften anzeigen
+std::string deviceName(obs_source_t *source)
+{
+	obs_data_t *settings = obs_source_get_settings(source);
+	const std::string id = obs_data_get_string(settings, "device_id");
+	obs_data_release(settings);
+	if (id.empty())
+		return {};
+	std::string name;
+	obs_properties_t *properties = obs_source_properties(source);
+	obs_property_t *list = properties ? obs_properties_get(properties, "device_id") : nullptr;
+	for (size_t i = 0; list && i < obs_property_list_item_count(list); i++) {
+		const char *value = obs_property_list_item_string(list, i);
+		if (value && id == value) {
+			name = obs_property_list_item_name(list, i);
+			break;
+		}
+	}
+	obs_properties_destroy(properties);
+	return name;
+}
+
+// Wie wahrscheinlich die Quelle das Mikrofon des Streamers ist (Name und Gerät zusammen betrachtet)
+int microphoneScore(const AudioSource &entry, obs_source_t *source)
+{
+	const QString text = QString::fromStdString(entry.name + " " + entry.device).toLower();
+	static const QStringList mic = {"mikro",        "micro",         "mic",         "headset",     "voice",
+					"stimme",       "beyerdynamic",  "shure",       "rode",        "yeti",
+					"hyperx",       "sennheiser",    "steelseries", "elgato wave", "fifine",
+					"razer seiren", "audio-technica"};
+	static const QStringList capture = {"elgato 4k",
+					    "4k s",
+					    "4k x",
+					    "4k60",
+					    "hd60",
+					    "cam link",
+					    "capture",
+					    "hdmi",
+					    "digitale audioschnittstelle",
+					    "digital audio interface",
+					    "game capture",
+					    "spiel",
+					    "konsole",
+					    "avermedia",
+					    "live gamer",
+					    "stereo mix",
+					    "stereomix",
+					    "loopback"};
+	int score = entry.global ? 3 : 0;
+	for (const QString &word : mic) {
+		if (text.contains(word)) {
+			score += 2;
+			break;
+		}
+	}
+	for (const QString &word : capture) {
+		if (text.contains(word)) {
+			score -= 4;
+			break;
+		}
+	}
+	// Das Standard-Aufnahmegerät von Windows ist meist das Mikrofon
+	obs_data_t *settings = obs_source_get_settings(source);
+	if (std::string(obs_data_get_string(settings, "device_id")) == "default")
+		score += 1;
+	obs_data_release(settings);
+	return score;
 }
 
 void pushSample(float sample, double step)
@@ -173,6 +243,7 @@ void detachLocked()
 	obs_source_release(g_source);
 	g_source = nullptr;
 	g_sourceName.clear();
+	g_sourceDevice.clear();
 	clearAudio();
 }
 
@@ -180,8 +251,8 @@ obs_source_t *findSource(const std::string &name)
 {
 	if (!name.empty())
 		return obs_get_source_by_name(name.c_str());
-	const std::vector<std::string> sources = audioSources();
-	return sources.empty() ? nullptr : obs_get_source_by_name(sources.front().c_str());
+	const std::vector<AudioSource> sources = audioSources();
+	return sources.empty() ? nullptr : obs_get_source_by_name(sources.front().name.c_str());
 }
 
 // Erwartet g_configMutex
@@ -197,7 +268,8 @@ void attachLocked()
 	obs_source_add_audio_capture_callback(source, audioCallback, nullptr);
 	g_source = source;
 	g_sourceName = obs_source_get_name(source);
-	obs_log(LOG_INFO, "Spracherkennung hört bei „%s“ mit", g_sourceName.c_str());
+	g_sourceDevice = deviceName(source);
+	obs_log(LOG_INFO, "Spracherkennung hört bei „%s“ (%s) mit", g_sourceName.c_str(), g_sourceDevice.c_str());
 }
 
 // Erwartet g_configMutex
@@ -457,7 +529,7 @@ std::string status()
 	if (!g_source)
 		return g_sourceMissing ? "Kein Mikrofon gefunden – Quelle in den Einstellungen wählen"
 				       : "Wartet auf das Mikrofon";
-	return "Hört zu: " + g_sourceName;
+	return "Hört zu: " + g_sourceName + (g_sourceDevice.empty() ? std::string() : " (" + g_sourceDevice + ")");
 }
 
 std::string lastText()
@@ -466,29 +538,48 @@ std::string lastText()
 	return g_lastText;
 }
 
-std::vector<std::string> audioSources()
+std::vector<AudioSource> audioSources()
 {
-	std::vector<std::string> names;
-	auto add = [&names](obs_source_t *source) {
+	struct Candidate {
+		AudioSource source;
+		int score;
+	};
+	std::vector<Candidate> candidates;
+	auto add = [&candidates](obs_source_t *source, bool global) {
 		if (!isMicrophone(source))
 			return;
 		const char *name = obs_source_get_name(source);
-		if (name && *name && std::find(names.begin(), names.end(), name) == names.end())
-			names.emplace_back(name);
+		if (!name || !*name)
+			return;
+		for (const Candidate &candidate : candidates) {
+			if (candidate.source.name == name)
+				return;
+		}
+		AudioSource entry{name, deviceName(source), global};
+		candidates.push_back({entry, microphoneScore(entry, source)});
 	};
-	// Globale Audiogeräte aus den OBS-Einstellungen (z. B. „Mic/Aux“) zuerst
+	// Globale Audiogeräte aus den OBS-Einstellungen (z. B. „Mic/Aux“)
 	for (uint32_t channel = 1; channel <= 6; channel++) {
 		obs_source_t *source = obs_get_output_source(channel);
-		add(source);
+		add(source, true);
 		obs_source_release(source);
 	}
+	auto addScene = [&add](obs_source_t *source) {
+		add(source, false);
+	};
 	obs_enum_sources(
 		[](void *param, obs_source_t *source) {
-			(*static_cast<decltype(add) *>(param))(source);
+			(*static_cast<decltype(addScene) *>(param))(source);
 			return true;
 		},
-		&add);
-	return names;
+		&addScene);
+
+	std::stable_sort(candidates.begin(), candidates.end(),
+			 [](const Candidate &a, const Candidate &b) { return a.score > b.score; });
+	std::vector<AudioSource> result;
+	for (const Candidate &candidate : candidates)
+		result.push_back(candidate.source);
+	return result;
 }
 
 void shutdown()
