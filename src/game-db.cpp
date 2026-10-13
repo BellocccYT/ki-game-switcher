@@ -80,9 +80,8 @@ std::optional<ReferenceGame> lookup(const std::string &name, bool &reachable)
 	if (query.isEmpty())
 		return std::nullopt;
 
-	const QJsonObject search = getJson("https://store.steampowered.com/api/storesearch/?l=english&cc=US&term=" +
-						   urlEncode(name),
-					   reachable);
+	const QJsonObject search = getJson(
+		"https://store.steampowered.com/api/storesearch/?l=english&cc=US&term=" + urlEncode(name), reachable);
 	const QJsonArray items = search.value("items").toArray();
 	QJsonObject best;
 	for (const QJsonValue item : items) {
@@ -152,8 +151,10 @@ QImage referenceSheet(const ReferenceGame &game)
 	painter.setRenderHint(QPainter::SmoothPixmapTransform);
 	int left = 0;
 	for (const QImage &shot : game.screenshots) {
-		const QImage scaled = shot.scaled(kShotWidth, kShotHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-		painter.drawImage(left + (kShotWidth - scaled.width()) / 2, (kShotHeight - scaled.height()) / 2, scaled);
+		const QImage scaled =
+			shot.scaled(kShotWidth, kShotHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+		painter.drawImage(left + (kShotWidth - scaled.width()) / 2, (kShotHeight - scaled.height()) / 2,
+				  scaled);
 		left += kShotWidth + kGap;
 	}
 	painter.end();

@@ -187,8 +187,7 @@ obs_source_t *findSource(const std::string &name)
 // Erwartet g_configMutex
 void attachLocked()
 {
-	if (g_source && !obs_source_removed(g_source) &&
-	    (g_sourceSetting.empty() || g_sourceSetting == g_sourceName))
+	if (g_source && !obs_source_removed(g_source) && (g_sourceSetting.empty() || g_sourceSetting == g_sourceName))
 		return;
 	detachLocked();
 	obs_source_t *source = findSource(g_sourceSetting);
@@ -279,8 +278,12 @@ whisper_context *loadModel(const std::string &path)
 		f->stream.read(static_cast<char *>(output), static_cast<std::streamsize>(size));
 		return static_cast<size_t>(f->stream.gcount());
 	};
-	loader.eof = [](void *ctx) { return static_cast<FileLoader *>(ctx)->stream.eof(); };
-	loader.close = [](void *ctx) { delete static_cast<FileLoader *>(ctx); };
+	loader.eof = [](void *ctx) {
+		return static_cast<FileLoader *>(ctx)->stream.eof();
+	};
+	loader.close = [](void *ctx) {
+		delete static_cast<FileLoader *>(ctx);
+	};
 
 	whisper_context_params params = whisper_context_default_params();
 	params.use_gpu = false; // die Grafikkarte gehört dem Spiel und der Bild-KI
@@ -290,9 +293,9 @@ whisper_context *loadModel(const std::string &path)
 // Typische Whisper-Halluzinationen bei Stille oder Musik
 bool isHallucination(const QString &text)
 {
-	static const QStringList phrases = {"Untertitel", "Amara.org", "Vielen Dank fürs Zuschauen",
-					    "Vielen Dank für's Zuschauen", "Copyright", "Untertitelung",
-					    "Thanks for watching", "Bis zum nächsten Mal"};
+	static const QStringList phrases = {
+		"Untertitel", "Amara.org",     "Vielen Dank fürs Zuschauen", "Vielen Dank für's Zuschauen",
+		"Copyright",  "Untertitelung", "Thanks for watching",        "Bis zum nächsten Mal"};
 	for (const QString &phrase : phrases) {
 		if (text.contains(phrase, Qt::CaseInsensitive))
 			return true;

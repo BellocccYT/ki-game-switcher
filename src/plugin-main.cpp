@@ -47,10 +47,18 @@ struct Hotkey {
 	obs_hotkey_id id = OBS_INVALID_HOTKEY_ID;
 };
 Hotkey g_hotkeys[] = {
-	{"kgs_check_now", "KI Game Switcher: Jetzt prüfen", [] { g_switcher->checkNow(); }},
-	{"kgs_test", "KI Game Switcher: Test (nichts ändern)", [] { g_switcher->testNow(); }},
+	{"kgs_check_now", "KI Game Switcher: Jetzt prüfen",
+	 [] {
+		 g_switcher->checkNow();
+	 }},
+	{"kgs_test", "KI Game Switcher: Test (nichts ändern)",
+	 [] {
+		 g_switcher->testNow();
+	 }},
 	{"kgs_toggle", "KI Game Switcher: Pausieren / Fortsetzen",
-	 [] { g_switcher->setEnabled(!g_switcher->settings().enabled); }},
+	 [] {
+		 g_switcher->setEnabled(!g_switcher->settings().enabled);
+	 }},
 };
 
 void onHotkey(void *data, obs_hotkey_id, obs_hotkey_t *, bool pressed)

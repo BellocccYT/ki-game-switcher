@@ -81,8 +81,10 @@ const std::vector<TitlePreset> kTitlePresets = {
 	 "Locker und einladend, wie ein gut gelaunter Streamer, der Lust auf den Stream macht. Ein passendes Emoji."},
 	{"hype", "Hype",
 	 "Energiegeladen und spannend, ein Wort darf in GROSSBUCHSTABEN stehen, ein bis zwei passende Emojis."},
-	{"witzig", "Witzig", "Humorvoll mit einem Wortspiel oder einem augenzwinkernden Kommentar zum Spiel oder zur Situation."},
-	{"sachlich", "Sachlich", "Klar und informativ: Spiel und aktuelle Situation, ohne Emojis und ohne Übertreibung."},
+	{"witzig", "Witzig",
+	 "Humorvoll mit einem Wortspiel oder einem augenzwinkernden Kommentar zum Spiel oder zur Situation."},
+	{"sachlich", "Sachlich",
+	 "Klar und informativ: Spiel und aktuelle Situation, ohne Emojis und ohne Übertreibung."},
 	{"eigener", "Nur eigene Ergänzungen", ""},
 };
 

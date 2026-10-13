@@ -38,9 +38,9 @@ AiTarget aiTargetFrom(const Settings &settings);
 
 // Zusatzwissen für die Erkennung
 struct DetectContext {
-	std::string appHint;       // aufgenommene Programme und aktives Fenster
-	std::string previousGame;  // zuletzt erkanntes Spiel (Twitch-Kategorie)
-	std::string previousScene; // Spielsituation beim letzten Titel
+	std::string appHint;             // aufgenommene Programme und aktives Fenster
+	std::string previousGame;        // zuletzt erkanntes Spiel (Twitch-Kategorie)
+	std::string previousScene;       // Spielsituation beim letzten Titel
 	std::string language = "German"; // Sprache für Situation und Stichwörter
 };
 
@@ -50,11 +50,11 @@ struct Detection {
 	std::string category; // Name der Twitch-Kategorie laut KI
 	double confidence = 0.0;
 	std::string reason;
-	std::string scene;           // kurze Beschreibung der Spielsituation, z. B. „Bosskampf gegen …“
-	bool progressChanged = false; // deutlich neuer Abschnitt im selben Spiel
+	std::string scene;                     // kurze Beschreibung der Spielsituation, z. B. „Bosskampf gegen …“
+	bool progressChanged = false;          // deutlich neuer Abschnitt im selben Spiel
 	std::vector<std::string> alternatives; // andere infrage kommende Spiele
 	std::vector<std::string> keywords;     // Stichwörter aus dem Gesprochenen (extractKeywords)
-	std::string model; // Modell, das tatsächlich geantwortet hat
+	std::string model;                     // Modell, das tatsächlich geantwortet hat
 };
 
 struct Verification {

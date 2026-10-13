@@ -319,10 +319,11 @@ QWidget *SettingsDialog::createDetectionTab()
 
 	verifyDatabase_ = new QCheckBox("Vor dem Umstellen mit Steam-Screenshots abgleichen");
 	verifyDatabase_->setChecked(settings_.verifyWithDatabase);
-	verifyDatabase_->setToolTip("Bevor die KI auf ein anderes Spiel umstellt, holt das Plugin Screenshots der "
-				    "infrage kommenden Spiele aus dem Steam-Shop und lässt die KI vergleichen. Genauer, "
-				    "dauert pro Wechsel aber einige Sekunden länger. Spiele, die es nicht bei Steam gibt, "
-				    "werden ohne Abgleich umgestellt.");
+	verifyDatabase_->setToolTip(
+		"Bevor die KI auf ein anderes Spiel umstellt, holt das Plugin Screenshots der "
+		"infrage kommenden Spiele aus dem Steam-Shop und lässt die KI vergleichen. Genauer, "
+		"dauert pro Wechsel aber einige Sekunden länger. Spiele, die es nicht bei Steam gibt, "
+		"werden ohne Abgleich umgestellt.");
 	form->addRow(verifyDatabase_);
 
 	blocked_ = new QLineEdit(qstr(settings_.blockedCategories));
@@ -362,8 +363,9 @@ QWidget *SettingsDialog::createTitleTab()
 	titleLanguage_->setCurrentIndex(std::max(0, titleLanguage_->findData(qstr(settings_.titleLanguage))));
 	titleEmojis_ = new QCheckBox("Emojis erlauben");
 	titleEmojis_->setChecked(settings_.titleEmojis);
-	titleEmojis_->setToolTip("Aus: Das Plugin entfernt Emojis selbst aus jedem Titel – auch aus der Vorlage und "
-				 "egal, was das Modell schreibt. Deine festen Teile vorne und hinten bleiben unverändert.");
+	titleEmojis_->setToolTip(
+		"Aus: Das Plugin entfernt Emojis selbst aus jedem Titel – auch aus der Vorlage und "
+		"egal, was das Modell schreibt. Deine festen Teile vorne und hinten bleiben unverändert.");
 	auto *languageRow = new QHBoxLayout;
 	languageRow->addWidget(titleLanguage_);
 	languageRow->addWidget(titleEmojis_);
@@ -467,13 +469,14 @@ QWidget *SettingsDialog::createVoiceTab()
 	voiceEnabled_->setChecked(settings_.voiceEnabled && supported);
 	voiceEnabled_->setEnabled(supported);
 	form->addRow(voiceEnabled_);
-	form->addRow(hint(supported
-				  ? "Die Spracherkennung läuft komplett auf deinem PC (whisper.cpp). Nichts wird "
-				    "aufgenommen oder gespeichert: Das Plugin hält nur die letzten zwei Minuten Audio im "
-				    "Arbeitsspeicher und merkt sich den erkannten Text der letzten drei Minuten. Wird ein neuer "
-				    "Titel geschrieben, geht dieser Text an die gewählte KI – bei Ollama bleibt also alles "
-				    "lokal. Auf die Spielerkennung hat das Gesagte keinen Einfluss."
-				  : "<b>" + qstr(reason) + "</b>"));
+	form->addRow(hint(
+		supported
+			? "Die Spracherkennung läuft komplett auf deinem PC (whisper.cpp). Nichts wird "
+			  "aufgenommen oder gespeichert: Das Plugin hält nur die letzten zwei Minuten Audio im "
+			  "Arbeitsspeicher und merkt sich den erkannten Text der letzten drei Minuten. Wird ein neuer "
+			  "Titel geschrieben, geht dieser Text an die gewählte KI – bei Ollama bleibt also alles "
+			  "lokal. Auf die Spielerkennung hat das Gesagte keinen Einfluss."
+			: "<b>" + qstr(reason) + "</b>"));
 
 	voiceSource_ = new QComboBox;
 	voiceSource_->addItem("Automatisch (erstes Mikrofon)", QString());
@@ -523,13 +526,14 @@ QWidget *SettingsDialog::createRulesTab()
 {
 	auto *page = new QWidget;
 	auto *layout = new QVBoxLayout(page);
-	layout->addWidget(hint("Nimmt OBS eines dieser Programme auf (Spiel- oder Fensteraufnahme) oder ist es das "
-			       "aktive Fenster, stellt das Plugin sofort und ohne KI auf die Kategorie um – 100 % "
-			       "sicher und kostenlos.<br><b>Emulatoren:</b> Trag dasselbe Programm mehrmals ein, jeweils "
-			       "mit einem Teil des Fenstertitels (z. B. <code>Dolphin.exe</code> + „Mario Kart“ und "
-			       "<code>Dolphin.exe</code> + „Sunshine“). Zeilen mit Fenstertitel gehen vor.<br>"
-			       "<b>Eigener Titel</b> (optional, Platzhalter wie in der Vorlage) und <b>Tags</b> gelten nur "
-			       "für dieses Spiel."));
+	layout->addWidget(
+		hint("Nimmt OBS eines dieser Programme auf (Spiel- oder Fensteraufnahme) oder ist es das "
+		     "aktive Fenster, stellt das Plugin sofort und ohne KI auf die Kategorie um – 100 % "
+		     "sicher und kostenlos.<br><b>Emulatoren:</b> Trag dasselbe Programm mehrmals ein, jeweils "
+		     "mit einem Teil des Fenstertitels (z. B. <code>Dolphin.exe</code> + „Mario Kart“ und "
+		     "<code>Dolphin.exe</code> + „Sunshine“). Zeilen mit Fenstertitel gehen vor.<br>"
+		     "<b>Eigener Titel</b> (optional, Platzhalter wie in der Vorlage) und <b>Tags</b> gelten nur "
+		     "für dieses Spiel."));
 
 	rules_ = new QTableWidget(0, 5);
 	rules_->setHorizontalHeaderLabels(
@@ -580,7 +584,10 @@ QWidget *SettingsDialog::createRulesTab()
 			for (int row = 0; row < rules_->rowCount(); row++) {
 				auto same = [&](int column, const std::string &value) {
 					return rules_->item(row, column) &&
-					       rules_->item(row, column)->text().trimmed().compare(qstr(value), Qt::CaseInsensitive) == 0;
+					       rules_->item(row, column)
+							       ->text()
+							       .trimmed()
+							       .compare(qstr(value), Qt::CaseInsensitive) == 0;
 				};
 				exists = exists || (same(0, rule.executable) && same(1, rule.windowTitle));
 			}

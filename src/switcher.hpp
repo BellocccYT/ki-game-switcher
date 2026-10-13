@@ -152,10 +152,10 @@ private:
 	std::string candidate_;
 	int candidateHits_ = 0;
 	QString lastDetectionLabel_;
-	std::string lastScene_;  // zuletzt angezeigte Situation (für den Verlauf)
-	std::string lastBlocked_; // zuletzt gemeldete gesperrte Kategorie
+	std::string lastScene_;    // zuletzt angezeigte Situation (für den Verlauf)
+	std::string lastBlocked_;  // zuletzt gemeldete gesperrte Kategorie
 	std::string recentSpeech_; // was in den letzten Minuten gesagt wurde (für Stichwörter)
-	std::string titleScene_; // Situation, zu der der aktuelle Titel passt
+	std::string titleScene_;   // Situation, zu der der aktuelle Titel passt
 	int progressHits_ = 0;
 	bool progressWaitLogged_ = false;
 	std::optional<std::chrono::steady_clock::time_point> lastTitleChange_;

@@ -60,7 +60,6 @@ std::string lowerKey(const std::string &value)
 	return qstr(value).trimmed().toLower().toStdString();
 }
 
-
 // Hinweis für die KI: was OBS aufnimmt und welches Fenster vorne ist
 std::string appHint(const std::vector<CapturedApp> &apps, const ForegroundWindow &foreground)
 {
@@ -95,7 +94,8 @@ const GameRule *matchRule(const Settings &cfg, const std::vector<CapturedApp> &a
 	for (const auto &[executable, title] : windows) {
 		for (const bool specific : {true, false}) {
 			for (const GameRule &rule : cfg.rules) {
-				if (qstr(rule.windowTitle).trimmed().isEmpty() != specific && matches(executable, title, rule))
+				if (qstr(rule.windowTitle).trimmed().isEmpty() != specific &&
+				    matches(executable, title, rule))
 					return &rule;
 			}
 		}
@@ -213,7 +213,7 @@ void Switcher::checkNow()
 }
 
 void Switcher::correctCategory(const std::string &category, const std::string &rememberExecutable,
-				const std::string &rememberWindowTitle)
+			       const std::string &rememberWindowTitle)
 {
 	if (!rememberExecutable.empty()) {
 		Settings changed = settings();
@@ -232,8 +232,8 @@ void Switcher::correctCategory(const std::string &category, const std::string &r
 		rules.push_back(rule);
 		setSettings(changed);
 		addHistory("Zuordnung gemerkt: " + qstr(rememberExecutable) +
-			   (rememberWindowTitle.empty() ? QString() : " („" + qstr(rememberWindowTitle) + "“)") + " → " +
-			   qstr(category));
+			   (rememberWindowTitle.empty() ? QString() : " („" + qstr(rememberWindowTitle) + "“)") +
+			   " → " + qstr(category));
 	}
 	{
 		std::lock_guard lock(mutex_);
@@ -480,7 +480,8 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		setNotice({}, false);
 		emit statusChanged();
 		if (dryRun || label != lastDetectionLabel_)
-			addHistory((dryRun ? "Test: " : "Erkannt: ") + label + " · Zuordnung " + qstr(rule->executable) +
+			addHistory((dryRun ? "Test: " : "Erkannt: ") + label + " · Zuordnung " +
+				   qstr(rule->executable) +
 				   (rule->windowTitle.empty() ? QString() : " („" + qstr(rule->windowTitle) + "“)"));
 		lastDetectionLabel_ = label;
 	} else {
@@ -657,11 +658,13 @@ std::optional<std::string> Switcher::verifyWithSteam(const Settings &cfg, const 
 			return std::nullopt;
 		}
 		const QString seconds =
-			QString::number(std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count(),
-					'f', 1)
+			QString::number(
+				std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count(), 'f',
+				1)
 				.replace('.', ',');
-		addHistory(QString("Steam-Abgleich „%1“: %2 · %3 s")
-				   .arg(qstr(reference->name), verification.sameGame ? "passt" : "passt nicht", seconds));
+		addHistory(
+			QString("Steam-Abgleich „%1“: %2 · %3 s")
+				.arg(qstr(reference->name), verification.sameGame ? "passt" : "passt nicht", seconds));
 		if (verification.sameGame) {
 			result = names[i];
 			break;
@@ -704,7 +707,8 @@ void Switcher::maybeProgressTitle(const Settings &cfg, const Detection &detectio
 	const auto minimum = std::chrono::minutes(cfg.progressMinutes);
 	if (lastTitleChange_ && now - *lastTitleChange_ < minimum) {
 		if (!progressWaitLogged_) {
-			const auto left = std::chrono::duration_cast<std::chrono::minutes>(minimum - (now - *lastTitleChange_));
+			const auto left =
+				std::chrono::duration_cast<std::chrono::minutes>(minimum - (now - *lastTitleChange_));
 			addHistory(QString("Neuer Abschnitt „%1“ – Titel frühestens in %2 min")
 					   .arg(qstr(detection.scene))
 					   .arg(left.count() + 1));
@@ -715,10 +719,10 @@ void Switcher::maybeProgressTitle(const Settings &cfg, const Detection &detectio
 
 	ChannelInfo channel = twitch_.getChannel();
 	const std::vector<std::string> keywords = speechKeywords(cfg, channel.gameName);
-	const std::string title = rule && !qstr(rule->title).trimmed().isEmpty()
-					  ? composeTitle(cfg, fillTemplate(rule->title, channel.gameName, detection.scene,
-									   keywords))
-					  : makeTitle(cfg, channel.gameName, detection.scene, keywords, channel.title);
+	const std::string title =
+		rule && !qstr(rule->title).trimmed().isEmpty()
+			? composeTitle(cfg, fillTemplate(rule->title, channel.gameName, detection.scene, keywords))
+			: makeTitle(cfg, channel.gameName, detection.scene, keywords, channel.title);
 	progressHits_ = 0;
 	progressWaitLogged_ = false;
 	titleScene_ = detection.scene;

@@ -323,8 +323,7 @@ std::optional<Category> Twitch::findCategory(const std::string &name)
 	return result;
 }
 
-void Twitch::updateChannel(const std::string &gameId, const std::string &title,
-			   const std::vector<std::string> &tags)
+void Twitch::updateChannel(const std::string &gameId, const std::string &title, const std::vector<std::string> &tags)
 {
 	std::lock_guard lock(mutex_);
 	QJsonObject body{{"game_id", QString::fromStdString(gameId)}};

@@ -144,9 +144,9 @@ std::string fillTemplate(const std::string &templ, const std::string &game, cons
 			continue;
 		}
 		// Leerer Platzhalter: samt davorstehendem Trennzeichen entfernen („{game} – {scene}“ → „{game}“)
-		const QRegularExpression withSeparator(
-			QStringLiteral("\\s*[-–—|·:,/]?\\s*") + QRegularExpression::escape(names[i]),
-			QRegularExpression::CaseInsensitiveOption);
+		const QRegularExpression withSeparator(QStringLiteral("\\s*[-–—|·:,/]?\\s*") +
+							       QRegularExpression::escape(names[i]),
+						       QRegularExpression::CaseInsensitiveOption);
 		result.remove(withSeparator);
 	}
 	return trimSeparators(result).toStdString();

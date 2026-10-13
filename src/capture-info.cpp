@@ -163,11 +163,12 @@ std::vector<CapturedApp> activeCapturedApps()
 
 bool isEmulator(const std::string &executable)
 {
-	static const char *const known[] = {"dolphin",  "citron",   "ryujinx", "yuzu",     "suyu",   "sudachi", "eden",
-					    "retroarch", "pcsx2",   "rpcs3",   "cemu",     "ppsspp", "duckstation",
-					    "xemu",     "vita3k",   "melonds", "desmume",  "mgba",   "azahar",  "lime3ds",
-					    "citra",    "shadps4",  "xenia",   "flycast",  "redream", "mame",    "snes9x",
-					    "bsnes",    "mesen",    "project64", "simple64", "ares",  "dosbox",  "scummvm"};
+	static const char *const known[] = {"dolphin",     "citron",    "ryujinx", "yuzu",    "suyu",    "sudachi",
+					    "eden",        "retroarch", "pcsx2",   "rpcs3",   "cemu",    "ppsspp",
+					    "duckstation", "xemu",      "vita3k",  "melonds", "desmume", "mgba",
+					    "azahar",      "lime3ds",   "citra",   "shadps4", "xenia",   "flycast",
+					    "redream",     "mame",      "snes9x",  "bsnes",   "mesen",   "project64",
+					    "simple64",    "ares",      "dosbox",  "scummvm"};
 	const QString name = QString::fromStdString(executable).toLower();
 	for (const char *emulator : known) {
 		if (name.startsWith(QLatin1String(emulator)))

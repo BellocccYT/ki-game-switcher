@@ -102,14 +102,14 @@ struct Settings {
 	TitleMode titleMode = TitleMode::Ai;
 	std::string titleTemplate = "{game} – live! 🎮";
 	std::string titlePreset = "locker";
-	std::string titleStyle; // eigene Ergänzungen zur Stilvorgabe
-	std::string titlePrefix; // steht immer vorne im Titel, egal welches Modell
-	std::string titleSuffix; // steht immer hinten im Titel, egal welches Modell
+	std::string titleStyle;           // eigene Ergänzungen zur Stilvorgabe
+	std::string titlePrefix;          // steht immer vorne im Titel, egal welches Modell
+	std::string titleSuffix;          // steht immer hinten im Titel, egal welches Modell
 	std::string titleLanguage = "de"; // „de“ oder „en“
 	bool titleEmojis = true;          // aus = das Plugin entfernt Emojis aus Titeln
 	std::string twitchTags;           // bei jedem Wechsel setzen (leer = Tags nicht anfassen)
-	bool progressTitles = true; // Titel auch bei Fortschritt im selben Spiel anpassen
-	int progressMinutes = 15;   // frühestens so oft
+	bool progressTitles = true;       // Titel auch bei Fortschritt im selben Spiel anpassen
+	int progressMinutes = 15;         // frühestens so oft
 
 	bool voiceEnabled = false;
 	std::string voiceSource; // leer = Mikrofon automatisch wählen
