@@ -29,8 +29,13 @@ get_directory_property(_kgs_compile_definitions COMPILE_DEFINITIONS)
 get_directory_property(_kgs_link_options LINK_OPTIONS)
 set(_kgs_warning_as_error ${CMAKE_COMPILE_WARNING_AS_ERROR})
 set(_kgs_shared_libs ${BUILD_SHARED_LIBS})
+# whisper.cpp und ggml verlangen eine alte CMake-Version; ohne CMP0077 überschreibt ihr option(BUILD_SHARED_LIBS)
+# unsere Vorgabe und unter Linux entstünde eine libwhisper.so, die das Plugin-Paket nicht mitbringt
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
-set_directory_properties(PROPERTIES COMPILE_OPTIONS "" COMPILE_DEFINITIONS "" LINK_OPTIONS "")
+set_directory_properties(
+  PROPERTIES COMPILE_OPTIONS "" COMPILE_DEFINITIONS "" LINK_OPTIONS ""
+)
 set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
 set(BUILD_SHARED_LIBS OFF)
 # Die Vorlage setzt „x64,version=…“ – ggml erkennt die Architektur nur am reinen Plattformnamen
