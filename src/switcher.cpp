@@ -52,6 +52,7 @@ bool sameName(const std::string &a, const std::string &b)
 }
 
 constexpr auto kManualHold = std::chrono::minutes(15);
+constexpr auto kLivePoll = std::chrono::seconds(60);      // so oft fragt das Plugin Twitch, ob du live bist
 constexpr auto kVerdictValid = std::chrono::minutes(10);  // bestätigtes Steam-Ergebnis
 constexpr auto kRejectionValid = std::chrono::minutes(3); // abgelehntes Steam-Ergebnis
 
@@ -169,6 +170,7 @@ void Switcher::setSettings(const Settings &settings)
 	{
 		std::lock_guard lock(mutex_);
 		const bool resumed = settings.enabled && !settings_.enabled;
+		nextLivePoll_.reset();
 		settings_ = settings;
 		if (resumed)
 			dueNow_ = true;
@@ -262,7 +264,8 @@ StatusSnapshot Switcher::status() const
 	std::lock_guard lock(mutex_);
 	s.enabled = settings_.enabled;
 	s.onlyLive = settings_.onlyLive;
-	s.streaming = streaming_;
+	s.streaming = streaming_ || twitchLive_;
+	s.liveOnTwitch = twitchLive_ && !streaming_;
 	s.busy = busy_;
 	if (busy_)
 		s.busySeconds = static_cast<int>(
@@ -348,6 +351,17 @@ void Switcher::run()
 		if (stopping_)
 			break;
 
+		// Nicht jeder streamt über den Knopf in OBS – deshalb auch Twitch fragen, ob der Kanal live ist
+		if (settings_.enabled && settings_.onlyLive && !streaming_ &&
+		    (!nextLivePoll_ || std::chrono::steady_clock::now() >= *nextLivePoll_)) {
+			nextLivePoll_ = std::chrono::steady_clock::now() + kLivePoll;
+			lock.unlock();
+			pollTwitchLive();
+			lock.lock();
+			if (stopping_)
+				break;
+		}
+
 		const Request request = std::exchange(request_, Request::None);
 		const std::string manualCategory = std::exchange(manualCategory_, std::string());
 		if (dueNow_) {
@@ -355,7 +369,7 @@ void Switcher::run()
 			nextCheck_ = std::chrono::steady_clock::now();
 		}
 		const Settings cfg = settings_;
-		const bool streaming = streaming_;
+		const bool streaming = streaming_ || twitchLive_;
 		const bool due = !nextCheck_ || std::chrono::steady_clock::now() >= *nextCheck_;
 		const bool automatic = cfg.enabled && (!cfg.onlyLive || streaming);
 		const bool runCheck = request != Request::None || (automatic && due);
@@ -377,6 +391,36 @@ void Switcher::run()
 		}
 		lock.lock();
 	}
+}
+
+void Switcher::pollTwitchLive()
+{
+	if (!twitch_.connected())
+		return;
+	bool live = false;
+	try {
+		live = twitch_.isLive();
+		livePollFailed_ = false;
+	} catch (const std::exception &e) {
+		if (!livePollFailed_)
+			addHistory(QString("Twitch-Livestatus nicht abrufbar: %1").arg(e.what()));
+		livePollFailed_ = true;
+		return;
+	}
+	bool changed;
+	{
+		std::lock_guard lock(mutex_);
+		changed = live != twitchLive_;
+		twitchLive_ = live;
+		if (changed && live && !streaming_)
+			dueNow_ = true; // wie beim Streamstart in OBS: sofort prüfen
+	}
+	if (!changed)
+		return;
+	if (live)
+		refreshChannel_ = true;
+	addHistory(live ? "Twitch meldet: Du bist live – Erkennung läuft" : "Twitch meldet: Stream beendet");
+	emit statusChanged();
 }
 
 void Switcher::refreshChannel()

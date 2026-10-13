@@ -263,7 +263,9 @@ QWidget *SettingsDialog::createDetectionTab()
 	enabled_->setChecked(settings_.enabled);
 	form->addRow(enabled_);
 
-	onlyLive_ = new QCheckBox("Nur prüfen, während der Stream läuft");
+	onlyLive_ = new QCheckBox("Nur prüfen, während du live bist");
+	onlyLive_->setToolTip("Live heißt: OBS streamt oder Twitch meldet deinen Kanal als live (wird jede Minute "
+			      "abgefragt). So klappt es auch, wenn du nicht über „Stream starten“ in OBS live gehst.");
 	onlyLive_->setChecked(settings_.onlyLive);
 	form->addRow(onlyLive_);
 

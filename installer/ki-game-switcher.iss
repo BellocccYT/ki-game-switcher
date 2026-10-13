@@ -1,11 +1,11 @@
 ; Windows-Installer für den KI Game Switcher (Inno Setup 6)
 ;
 ; Bauen (nach "cmake --install build_x64 --prefix release/RelWithDebInfo"):
-;   ISCC.exe /DAppVersion=1.1.0 installer\ki-game-switcher.iss
+;   ISCC.exe /DAppVersion=1.2.0 installer\ki-game-switcher.iss
 ; Ergebnis: release\ki-game-switcher-<Version>-windows-x64-setup.exe
 
 #ifndef AppVersion
-  #define AppVersion "1.1.0"
+  #define AppVersion "1.2.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\release\RelWithDebInfo\ki-game-switcher"

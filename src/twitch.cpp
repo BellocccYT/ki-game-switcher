@@ -285,6 +285,13 @@ ChannelInfo Twitch::getChannel()
 	return {str(channel, "game_id"), str(channel, "game_name"), str(channel, "title")};
 }
 
+bool Twitch::isLive()
+{
+	std::lock_guard lock(mutex_);
+	const QJsonArray streams = helix("GET", "/streams", "user_id=" + urlEncode(userId_)).value("data").toArray();
+	return !streams.isEmpty() && streams.first().toObject().value("type").toString() == "live";
+}
+
 std::optional<Category> Twitch::findCategory(const std::string &name)
 {
 	std::lock_guard lock(mutex_);

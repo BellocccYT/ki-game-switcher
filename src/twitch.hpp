@@ -72,6 +72,8 @@ public:
 				const std::function<bool()> &cancelled);
 
 	ChannelInfo getChannel();
+	// Ist der Kanal gerade live? Funktioniert unabhängig davon, womit gestreamt wird.
+	bool isLive();
 	std::optional<Category> findCategory(const std::string &name);
 	// tags leer = Tags bleiben, wie sie sind
 	void updateChannel(const std::string &gameId, const std::string &title,

@@ -41,7 +41,8 @@ namespace kgs {
 struct StatusSnapshot {
 	bool enabled = true;
 	bool onlyLive = true;
-	bool streaming = false;
+	bool streaming = false;    // OBS streamt oder Twitch meldet den Kanal als live
+	bool liveOnTwitch = false; // live laut Twitch (ohne Streamstart in OBS)
 	bool busy = false;
 	int busySeconds = 0;        // wie lange die laufende KI-Anfrage schon dauert
 	int secondsUntilCheck = -1; // -1 = keine Prüfung geplant
@@ -113,6 +114,7 @@ private:
 						   const Detection &detection);
 	void applyManual(const Settings &cfg, const std::string &name);
 	void refreshChannel();
+	void pollTwitchLive();
 	void loginTask(const std::string &clientId);
 	void runInBackground(std::function<void()> task);
 
@@ -130,7 +132,10 @@ private:
 	std::string manualCategory_;
 	std::optional<std::chrono::steady_clock::time_point> holdUntil_;
 	bool dueNow_ = true;
-	bool streaming_ = false;
+	bool streaming_ = false;  // OBS-Streamausgabe läuft
+	bool twitchLive_ = false; // Twitch meldet den Kanal als live
+	std::optional<std::chrono::steady_clock::time_point> nextLivePoll_;
+	bool livePollFailed_ = false;
 	std::optional<std::chrono::steady_clock::time_point> nextCheck_;
 
 	// Anzeige-Status, geschützt durch mutex_

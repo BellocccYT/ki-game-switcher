@@ -114,6 +114,7 @@ Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei 
 | Erkennung | Prüfintervall | Abstand zwischen zwei Prüfungen (Standard 60 s) |
 | | Bildquelle | Programmausgabe oder eine einzelne Quelle |
 | | Mindest-Sicherheit | Unsichere Erkennungen werden ignoriert |
+| | Nur während du live bist | Live heißt: OBS streamt oder Twitch meldet deinen Kanal als live (jede Minute abgefragt) |
 | | Bestätigungen | So oft hintereinander muss ein neues Spiel erkannt werden (Standard 2) |
 | | Ohne Spiel | z. B. `Just Chatting`, wenn kein Spiel zu sehen ist. Leer lassen, dann bleibt die Kategorie. |
 | | Aktives Fenster mitsenden | Fenstertitel und Prozessname als Hinweis an die KI |
@@ -176,7 +177,7 @@ cmake --build --preset windows-x64 --config RelWithDebInfo
 Die DLL landet in `build_x64/RelWithDebInfo/`. Den Installer baust du mit [Inno Setup 6](https://jrsoftware.org/isinfo.php), nachdem du das Plugin mit `cmake --install build_x64 --config RelWithDebInfo --prefix release/RelWithDebInfo` bereitgelegt hast:
 
 ```bash
-ISCC.exe /DAppVersion=1.1.0 installer/ki-game-switcher.iss
+ISCC.exe /DAppVersion=1.2.0 installer/ki-game-switcher.iss
 ```
 
 Für macOS und Linux gibt es die Presets `macos` und `ubuntu-x86_64`. Die GitHub-Actions-Workflows bauen alle drei Plattformen samt Windows-Setup automatisch und hängen bei Tags die Pakete an ein Release.

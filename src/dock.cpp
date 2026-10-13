@@ -186,13 +186,15 @@ void SwitcherDock::refresh()
 	else if (!s.twitchConnected)
 		state_->setText(dot("#e3a008", "Twitch nicht verbunden"));
 	else if (s.onlyLive && !s.streaming)
-		state_->setText(dot("#8b949e", "Wartet auf Streamstart"));
+		state_->setText(dot("#8b949e", "Wartet, bis du live bist (OBS oder Twitch)"));
 	else if (s.holdMinutes > 0)
 		state_->setText(dot(
 			"#3fb950",
 			QString("Aktiv – nach deiner Korrektur stellt die KI noch %1 min nicht um").arg(s.holdMinutes)));
 	else if (s.secondsUntilCheck >= 0)
-		state_->setText(dot("#3fb950", QString("Aktiv – nächste Prüfung in %1 s").arg(s.secondsUntilCheck)));
+		state_->setText(dot("#3fb950", QString("Aktiv%1 – nächste Prüfung in %2 s")
+						       .arg(s.liveOnTwitch ? " (live laut Twitch)" : "")
+						       .arg(s.secondsUntilCheck)));
 	else
 		state_->setText(dot("#3fb950", "Aktiv"));
 
