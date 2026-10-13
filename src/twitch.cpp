@@ -300,7 +300,7 @@ std::optional<Category> Twitch::findCategory(const std::string &name)
 		QJsonArray search = helix("GET", "/search/categories", "first=10&query=" + urlEncode(trimmed))
 					    .value("data")
 					    .toArray();
-		for (const QJsonValue &hit : search) {
+		for (const QJsonValue hit : search) {
 			if (lower(str(hit.toObject(), "name")) == key) {
 				hits.append(hit);
 				break;

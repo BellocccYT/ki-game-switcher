@@ -243,7 +243,7 @@ std::string askOpenAiCompatible(const AiTarget &target, const std::string &syste
 	if (content.isString()) {
 		text = content.toString().toStdString();
 	} else if (content.isArray()) {
-		for (const QJsonValue &part : content.toArray())
+		for (const QJsonValue part : content.toArray())
 			text += part.toObject().value("text").toString().toStdString();
 	}
 	if (text.empty()) {
@@ -287,7 +287,7 @@ std::string askClaude(const AiTarget &target, const std::string &system, const Q
 	}
 	if (stopReason == "max_tokens")
 		throw std::runtime_error("Antwort von Claude wurde abgeschnitten");
-	for (const QJsonValue &block : message.value("content").toArray()) {
+	for (const QJsonValue block : message.value("content").toArray()) {
 		if (block.toObject().value("type").toString() == "text")
 			return block.toObject().value("text").toString().toStdString();
 	}
@@ -465,7 +465,7 @@ std::vector<std::string> listModels(const AiTarget &target)
 	if (response.status != 200)
 		throwHttpError(target, response);
 
-	for (const QJsonValue &entry : parseJson(response.body).object().value("data").toArray()) {
+	for (const QJsonValue entry : parseJson(response.body).object().value("data").toArray()) {
 		QJsonObject model = entry.toObject();
 		QString id = model.value("id").toString();
 		if (id.startsWith("models/"))
