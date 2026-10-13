@@ -10,12 +10,23 @@ Ein OBS-Plugin, das per KI erkennt, welches Spiel gerade in deinem Stream läuft
 
 ## Installation (Windows)
 
+1. Unter **Releases** die Datei `ki-game-switcher-…-windows-x64-setup.exe` herunterladen und starten
+2. Auf Wunsch installiert das Setup gleich **Ollama** samt Bildmodell mit. Damit läuft die KI kostenlos auf deinem PC, ohne API-Key. Das sind ca. 4,9 GB Download, und du brauchst eine Grafikkarte mit mindestens 4 GB Speicher.
+3. OBS starten. Das Dock **KI Game Switcher** erscheint automatisch.
+
+Voraussetzung ist OBS Studio 31 oder neuer. Läuft OBS noch, bittet dich das Setup, es zu schließen. Deinstallieren kannst du über **Windows-Einstellungen → Apps**. Ollama und deine Plugin-Einstellungen bleiben dabei erhalten.
+
+<details>
+<summary>Manuell mit der ZIP-Datei installieren</summary>
+
 1. Unter **Releases** die Datei `ki-game-switcher-…-windows-x64.zip` herunterladen
 2. OBS schließen
 3. Den Inhalt der ZIP nach `C:\ProgramData\obs-studio\plugins\` entpacken. Danach existiert `C:\ProgramData\obs-studio\plugins\ki-game-switcher\bin\64bit\ki-game-switcher.dll`.
 4. OBS starten → **Docks → KI Game Switcher**
 
-Voraussetzung ist OBS Studio 31 oder neuer.
+</details>
+
+> **Windows warnt beim Setup („Der Computer wurde durch Windows geschützt“)?** Das Setup ist noch nicht digital signiert. Klick auf **Weitere Informationen → Trotzdem ausführen**.
 
 > **„Fehler beim Laden von Plugins“?** Ist unter Windows 11 die *Intelligente App-Steuerung* (Smart App Control) aktiv, blockiert sie unsignierte DLLs. Im OBS-Log steht dann `LoadLibrary failed … (4551)`. Abhilfe schaffen nur eine signierte Version des Plugins oder das Abschalten der Intelligenten App-Steuerung (Windows-Sicherheit → App- & Browsersteuerung).
 
@@ -99,7 +110,12 @@ cmake --preset windows-x64
 cmake --build --preset windows-x64 --config RelWithDebInfo
 ```
 
-Die DLL landet in `build_x64/RelWithDebInfo/`. Für macOS und Linux gibt es die Presets `macos` und `ubuntu-x86_64`. Die GitHub-Actions-Workflows bauen alle drei Plattformen automatisch und hängen bei Tags die Pakete an ein Release.
+Die DLL landet in `build_x64/RelWithDebInfo/`. Den Installer baust du mit [Inno Setup 6](https://jrsoftware.org/isinfo.php), nachdem du das Plugin mit `cmake --install build_x64 --config RelWithDebInfo --prefix release/RelWithDebInfo` bereitgelegt hast:
+
+```bash
+ISCC.exe /DAppVersion=1.0.0 installer/ki-game-switcher.iss
+```
+ Für macOS und Linux gibt es die Presets `macos` und `ubuntu-x86_64`. Die GitHub-Actions-Workflows bauen alle drei Plattformen automatisch und hängen bei Tags die Pakete an ein Release.
 
 Das Projekt basiert auf der offiziellen [obs-plugintemplate](https://github.com/obsproject/obs-plugintemplate).
 

@@ -53,6 +53,7 @@ function Package {
         ErrorAction = 'SilentlyContinue'
         Path = @(
             "${ProjectRoot}/release/${ProductName}-*-windows-*.zip"
+            "${ProjectRoot}/release/${ProductName}-*-windows-*-setup.exe"
         )
     }
 
@@ -66,6 +67,23 @@ function Package {
         Verbose = ($Env:CI -ne $null)
     }
     Compress-Archive -Force @CompressArgs
+    Log-Group
+
+    Log-Group "Building installer for ${ProductName}..."
+    $Iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
+    if ( ! $Iscc ) {
+        $Iscc = "${Env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+        if ( ! ( Test-Path $Iscc ) ) {
+            choco install innosetup --yes --no-progress
+        }
+    }
+    $IsccArgs = @(
+        "/DAppVersion=${ProductVersion}"
+        "/DSourceDir=${ProjectRoot}\release\${Configuration}\${ProductName}"
+        "/DOutputDir=${ProjectRoot}\release"
+        "${ProjectRoot}\installer\${ProductName}.iss"
+    )
+    Invoke-External $Iscc @IsccArgs
     Log-Group
 }
 
