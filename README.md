@@ -2,7 +2,7 @@
 
 Ein OBS-Plugin, das per KI erkennt, welches Spiel gerade in deinem Stream läuft, und bei einem Spielwechsel **Twitch-Kategorie und -Titel automatisch umstellt**. Es läuft komplett in OBS und bringt ein eigenes Dock zur Steuerung mit.
 
-- **Kostenlos nutzbar:** Mit Google Gemini (kostenloser API-Key), kostenlosen OpenRouter-Modellen oder ganz lokal mit Ollama
+- **Kostenlos und ohne API-Key:** Standardmäßig läuft die KI lokal mit Ollama auf deinem PC. Alternativ gehen Google Gemini, OpenRouter, Claude oder ein eigener Server.
 - **Erkennt am echten Streambild:** Gerendert wird direkt in OBS, also genau das, was deine Zuschauer sehen. Alternativ nur die Spielaufnahme, dann klappt es auch mit Konsole oder Capture-Card.
 - **Kein nervöses Hin- und Herspringen:** Gewechselt wird erst nach mehreren sicheren Erkennungen hintereinander. Alt-Tab zu Discord löst nichts aus.
 - **Titel nach deinem Geschmack:** Die KI schreibt ihn in deinem Stil, oder du nimmst eine Vorlage wie `{game} – live! 🎮`
@@ -38,9 +38,9 @@ Voraussetzung ist OBS Studio 31 oder neuer. Läuft OBS noch, bittet dich das Set
 
 | Anbieter | Kosten | Was du brauchst |
 |---|---|---|
-| **Google Gemini** (Standard) | kostenlos im Rahmen des Gratis-Kontingents | Kostenlosen API-Key von [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| **Google Gemini** | in der EU, der Schweiz und Großbritannien nur kostenpflichtig (Google-Cloud-Projekt mit Abrechnung), laut Googles API-Bedingungen | API-Key von [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | **OpenRouter** | kostenlose Modelle | Key von [openrouter.ai/keys](https://openrouter.ai/keys). Ohne Guthaben nur ca. 50 Anfragen/Tag, Intervall daher ≥ 5 Min. |
-| **Ollama** | kostenlos, läuft lokal, ohne Key und ohne Limits | [Ollama](https://ollama.com) installieren und `ollama pull qwen3-vl:4b-instruct` (3,3 GB). Braucht ca. 4 GB Grafikspeicher und ein paar Sekunden GPU-Zeit pro Prüfung. AMD-Karten laufen über Vulkan (getestet mit RX 6750 XT: ca. 6–7 s pro Prüfung). |
+| **Ollama** (Standard) | kostenlos, läuft lokal, ohne Key und ohne Limits | [Ollama](https://ollama.com) installieren und `ollama pull qwen3-vl:4b-instruct` (3,3 GB). Braucht ca. 4 GB Grafikspeicher und ein paar Sekunden GPU-Zeit pro Prüfung. AMD-Karten laufen über Vulkan (getestet mit RX 6750 XT: ca. 6–7 s pro Prüfung). |
 | **Eigener Server** | – | Jede OpenAI-kompatible Schnittstelle, z. B. LM Studio |
 | **Anthropic Claude** | kostenpflichtig | Key von [platform.claude.com](https://platform.claude.com) |
 
@@ -81,7 +81,7 @@ Standardmäßig prüft das Plugin **nur während des Streams** jede Minute. Beim
 ## Datenschutz
 
 - An den gewählten KI-Anbieter geht pro Prüfung ein verkleinertes Standbild deines Streams. Das ist genau das, was deine Zuschauer ohnehin sehen. Ist die Option aktiv, kommen Titel und Prozessname des aktiven Fensters dazu. Fenstertitel können private Infos enthalten, z. B. Browser-Tabs.
-- **Kostenlose Kontingente** (z. B. Gemini Free Tier) dürfen die Anbieter laut ihren Bedingungen zur Verbesserung ihrer Dienste verwenden. Wer das nicht möchte, nimmt Ollama: Dann verlässt kein Bild deinen PC.
+- Mit Ollama (Standard) verlässt kein Bild deinen PC. Bei Online-Anbietern gelten deren Datenschutzbedingungen. Kostenlose Kontingente dürfen die Anbieter oft zur Verbesserung ihrer Dienste verwenden.
 - API-Keys und der Twitch-Login liegen nur lokal in `%APPDATA%\obs-studio\plugin_config\ki-game-switcher\`. **Trennen** löscht den Twitch-Login.
 
 ## Fehlerbehebung

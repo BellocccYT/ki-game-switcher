@@ -32,10 +32,11 @@ namespace {
 constexpr const char *kBuiltinTwitchClientId = "qecldbsld4yvnhb4r976a7jrctjt6z";
 
 const ProviderInfo kProviders[kProviderCount] = {
-	{"gemini", "Google Gemini (kostenlos)", "https://generativelanguage.googleapis.com/v1beta/openai",
-	 "gemini-3.8-flash", "gemini-3.5-flash-lite", true,
-	 "Kostenlos mit Google-Konto. Key erstellen: "
-	 "<a href=\"https://aistudio.google.com/apikey\">aistudio.google.com/apikey</a>"},
+	{"gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.8-flash",
+	 "gemini-3.5-flash-lite", true,
+	 "Key erstellen: <a href=\"https://aistudio.google.com/apikey\">aistudio.google.com/apikey</a>. In der EU, "
+	 "der Schweiz und Großbritannien erlaubt Google für Programme wie dieses nur die kostenpflichtige API "
+	 "(Google-Cloud-Projekt mit Abrechnung)."},
 	{"openrouter", "OpenRouter (kostenlose Modelle)", "https://openrouter.ai/api/v1", "openrouter/free", "", true,
 	 "Key: <a href=\"https://openrouter.ai/keys\">openrouter.ai/keys</a>. Ohne Guthaben nur rund 50 Anfragen "
 	 "pro Tag – stell das Prüfintervall dann auf mindestens 5 Minuten."},

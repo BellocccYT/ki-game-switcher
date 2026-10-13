@@ -55,7 +55,7 @@ struct ProviderSettings {
 };
 
 struct Settings {
-	Provider provider = Provider::Gemini;
+	Provider provider = Provider::Ollama;
 	std::array<ProviderSettings, kProviderCount> providers;
 	std::string twitchClientId; // leer = eingebaute Client-ID
 
