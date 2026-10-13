@@ -166,6 +166,26 @@ Das Projekt basiert auf der offiziellen [obs-plugintemplate](https://github.com/
 
 </details>
 
+## ✍️ Code-Signing-Richtlinie
+
+Die Windows-Dateien sollen künftig über [SignPath.io](https://signpath.io) mit einem Zertifikat der [SignPath Foundation](https://signpath.org) signiert werden (beantragt). Signiert werden ausschließlich Dateien, die GitHub Actions direkt aus dem Quellcode dieses Repositorys baut.
+
+| Rolle | Wer |
+|---|---|
+| Autor und Prüfer (Committer, Reviewer) | [Belloccc](https://github.com/BellocccYT) |
+| Freigabe von Signaturen (Approver) | [Belloccc](https://github.com/BellocccYT) |
+
+**Datenschutz:** Dieses Programm überträgt keine Daten an andere vernetzte Systeme, außer wenn der Nutzer das ausdrücklich einrichtet: an den gewählten KI-Anbieter (bei Ollama nur lokal auf dem eigenen PC) und an Twitch, um Titel und Kategorie zu ändern. Details stehen unter [Datenschutz](#-datenschutz).
+
+<details>
+<summary>English</summary>
+
+Windows binaries are to be signed via [SignPath.io](https://signpath.io) with a certificate issued by the [SignPath Foundation](https://signpath.org) (applied for). Only artifacts built by GitHub Actions directly from this repository's source code are signed. Committers, reviewers and approvers: [Belloccc](https://github.com/BellocccYT).
+
+Privacy policy: This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it: the AI provider chosen by the user (Ollama runs locally) and Twitch, to update the channel's title and category.
+
+</details>
+
 ## 📄 Lizenz
 
 GPL-2.0-or-later, siehe [LICENSE](LICENSE). Nicht offiziell mit OBS Project, Twitch, Ollama oder den KI-Anbietern verbunden.
