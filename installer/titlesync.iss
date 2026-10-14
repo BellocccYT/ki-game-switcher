@@ -1,11 +1,11 @@
 ; Windows-Installer für TitleSync (Inno Setup 6)
 ;
 ; Bauen (nach "cmake --install build_x64 --prefix release/RelWithDebInfo"):
-;   ISCC.exe /DAppVersion=1.4.0 installer\titlesync.iss
+;   ISCC.exe /DAppVersion=1.5.0 installer\titlesync.iss
 ; Ergebnis: release\titlesync-<Version>-windows-x64-setup.exe
 
 #ifndef AppVersion
-  #define AppVersion "1.4.0"
+  #define AppVersion "1.5.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\release\RelWithDebInfo\titlesync"

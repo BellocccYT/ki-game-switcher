@@ -32,6 +32,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <mutex>
 #include <set>
 #include <stdexcept>
+#include <thread>
 
 namespace kgs {
 
@@ -112,9 +113,10 @@ long timeoutFor(Provider provider)
 	case Provider::Groq:
 		return 20;
 	case Provider::Mistral:
-	case Provider::Nvidia:
 	case Provider::Cloudflare:
 		return 30;
+	case Provider::Nvidia:
+		return 60;
 	case Provider::Claude:
 		return 45;
 	default:
@@ -239,7 +241,12 @@ std::string providerErrorDetail(const std::string &body)
 		message = "API-Key ungültig oder ohne Berechtigung";
 		break;
 	case 404:
-		message = "Modell „" + target.model + "“ nicht gefunden – in den Einstellungen „Modelle laden“";
+		// NVIDIA listet auch Modelle, die für Gratis-Konten nicht freigeschaltet sind
+		message =
+			target.provider == Provider::Nvidia
+				? "Modell „" + target.model + "“ ist für dein NVIDIA-Konto nicht freigeschaltet – " +
+					  "nimm z. B. meta/llama-3.2-11b-vision-instruct"
+				: "Modell „" + target.model + "“ nicht gefunden – in den Einstellungen „Modelle laden“";
 		break;
 	case 429:
 		// Bei Gemini hat jedes Modell ein eigenes Gratis-Kontingent – das Ersatzmodell kann helfen
@@ -291,6 +298,10 @@ std::string askOpenAiCompatible(const AiTarget &target, const std::string &syste
 	// Niedrige Denkstufe: schnell, aber genau genug für die Bilderkennung
 	if (target.provider == Provider::Gemini)
 		request["reasoning_effort"] = "low";
+	// Nemotron ohne Nachdenken: 2–3 s statt 30–60 s, bei gleicher Treffsicherheit
+	if (target.provider == Provider::Nvidia &&
+	    QString::fromStdString(target.model).contains("nemotron", Qt::CaseInsensitive))
+		request["chat_template_kwargs"] = QJsonObject{{"enable_thinking", false}};
 
 	std::vector<std::string> headers{"Content-Type: application/json"};
 	if (!target.apiKey.empty())
@@ -304,6 +315,11 @@ std::string askOpenAiCompatible(const AiTarget &target, const std::string &syste
 	if (response.status == 400 && request.contains("reasoning_effort") &&
 	    QString::fromStdString(response.body).contains("thinking", Qt::CaseInsensitive)) {
 		request.remove("reasoning_effort");
+		response = httpRequest("POST", url, headers, toJson(request), timeoutFor(target.provider));
+	}
+	// NVIDIAs Gratis-Server melden oft kurz „ausgelastet“ – die Absage kommt sofort, ein neuer Versuch lohnt sich
+	for (int attempt = 0; attempt < 3 && response.status == 503 && target.provider == Provider::Nvidia; attempt++) {
+		std::this_thread::sleep_for(std::chrono::seconds(2));
 		response = httpRequest("POST", url, headers, toJson(request), timeoutFor(target.provider));
 	}
 	if (response.status != 200)
@@ -677,7 +693,11 @@ std::vector<std::string> listModels(const AiTarget &target)
 			static const char *vision[] = {"vision",  "-vl",     "omni",    "vila",   "multimodal",
 						       "gemma-3", "gemma-4", "llama-4", "kosmos", "neva"};
 			if (std::none_of(std::begin(vision), std::end(vision),
-					 [&id](const char *word) { return id.contains(word, Qt::CaseInsensitive); }))
+					 [&id](const char *word) { return id.contains(word, Qt::CaseInsensitive); }) ||
+			    id.contains("embed", Qt::CaseInsensitive))
+				continue;
+			// Llama 3.2 Vision ignoriert bei NVIDIA jede Formatvorgabe und antwortet nur in Sätzen
+			if (id.contains("llama-3.2", Qt::CaseInsensitive) && id.contains("vision", Qt::CaseInsensitive))
 				continue;
 		} else if (target.provider == Provider::Groq) {
 			// Sprach-, Audio- und Schutzmodelle können keine Bilder beschreiben

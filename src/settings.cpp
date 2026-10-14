@@ -71,10 +71,11 @@ const ProviderInfo kProviders[kProviderCount] = {
 	 "Gratis-Stufe ist stark eingeschränkt, sonst kostenpflichtig. Im Gratis-Modus darf Mistral Anfragen zum Training "
 	 "nutzen – in den Datenschutz-Einstellungen deines Kontos kannst du widersprechen."},
 	{"nvidia", "NVIDIA NIM (kostenloser Key)", "https://integrate.api.nvidia.com/v1",
-	 "meta/llama-3.2-11b-vision-instruct", "meta/llama-3.2-90b-vision-instruct", true,
+	 "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "", true,
 	 "Kostenloser Key nach Registrierung: <a href=\"https://build.nvidia.com\">build.nvidia.com</a> → Modell öffnen → "
-	 "„Get API Key“ (beginnt mit <code>nvapi-</code>). Etwa 40 Anfragen pro Minute. „Modelle laden“ zeigt die Modelle "
-	 "mit Bildverständnis."},
+	 "„Get API Key“ (beginnt mit <code>nvapi-</code>). Empfohlen: <code>nvidia/nemotron-3-nano-omni-30b-a3b-reasoning</code> "
+	 "– erkennt zuverlässig und antwortet in wenigen Sekunden.Viele andere Modelle in der Liste sind für Gratis-Konten "
+	 "nicht freigeschaltet oder oft überlastet."},
 	{"cloudflare", "Cloudflare Workers AI (kostenloses Tageskontingent)",
 	 "https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1", "@cf/meta/llama-4-scout-17b-16e-instruct",
 	 "@cf/google/gemma-3-12b-it", true,
