@@ -188,7 +188,7 @@ Das Projekt basiert auf der offiziellen [obs-plugintemplate](https://github.com/
 
 ## ✍️ Code-Signing-Richtlinie
 
-Die Windows-Dateien sollen künftig über [SignPath.io](https://signpath.io) mit einem Zertifikat der [SignPath Foundation](https://signpath.org) signiert werden (beantragt). Signiert werden ausschließlich Dateien, die GitHub Actions direkt aus dem Quellcode dieses Repositorys baut.
+Die Windows-Dateien sind **noch nicht signiert**. Sobald das Projekt bekannter ist, folgt ein Antrag auf kostenlose Signierung über [SignPath.io](https://signpath.io) mit einem Zertifikat der [SignPath Foundation](https://signpath.org). Signiert werden dann ausschließlich Dateien, die GitHub Actions direkt aus dem Quellcode dieses Repositorys baut. Bis dahin kannst du jeden Download mit den SHA-256-Prüfsummen auf der Release-Seite prüfen.
 
 | Rolle | Wer |
 |---|---|
@@ -200,7 +200,7 @@ Die Windows-Dateien sollen künftig über [SignPath.io](https://signpath.io) mit
 <details>
 <summary>English</summary>
 
-Windows binaries are to be signed via [SignPath.io](https://signpath.io) with a certificate issued by the [SignPath Foundation](https://signpath.org) (applied for). Only artifacts built by GitHub Actions directly from this repository's source code are signed. Committers, reviewers and approvers: [Belloccc](https://github.com/BellocccYT).
+Windows binaries are **not signed yet**. Once the project is more widely known, we will apply for free code signing via [SignPath.io](https://signpath.io) with a certificate issued by the [SignPath Foundation](https://signpath.org). Only artifacts built by GitHub Actions directly from this repository's source code will be signed. Until then, every download can be verified with the SHA-256 checksums on the release page. Committers, reviewers and approvers: [Belloccc](https://github.com/BellocccYT).
 
 Privacy policy: This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it: the AI provider chosen by the user (Ollama runs locally) and Twitch, to update the channel's title and category.
 
