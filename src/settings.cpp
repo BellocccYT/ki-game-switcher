@@ -53,7 +53,29 @@ const ProviderInfo kProviders[kProviderCount] = {
 	{"claude", "Anthropic Claude (kostenpflichtig)", "https://api.anthropic.com", "claude-opus-5-5", "", true,
 	 "Sehr zuverlässige Erkennung, kostet aber pro Anfrage. Key: "
 	 "<a href=\"https://platform.claude.com\">platform.claude.com</a>"},
+	{"lmstudio", "LM Studio (lokal, ohne Key)", "http://localhost:1234/v1", "", "", false,
+	 "Läuft auf deinem PC: <a href=\"https://lmstudio.ai\">lmstudio.ai</a> installieren, ein Bildmodell laden "
+	 "(z. B. Qwen3-VL 4B) und unter <b>Developer</b> den lokalen Server starten. Danach hier „Modelle laden“."},
+	{"jan", "Jan (lokal, ohne Key)", "http://localhost:1337/v1", "", "", false,
+	 "Läuft auf deinem PC: <a href=\"https://jan.ai\">jan.ai</a> installieren, ein Bildmodell laden und unter "
+	 "<b>Einstellungen → Local API Server</b> den Server starten. Danach hier „Modelle laden“."},
+	{"llamacpp", "llama.cpp-Server (lokal, ohne Key)", "http://localhost:8080/v1", "llama.cpp", "", false,
+	 "Für Bastler: <code>llama-server -m modell.gguf --mmproj mmproj.gguf --port 8080</code> mit einem Bildmodell "
+	 "starten. Der Modellname spielt keine Rolle."},
+	{"groq", "Groq (kostenloser Key)", "https://api.groq.com/openai/v1",
+	 "meta-llama/llama-4-scout-17b-16e-instruct", "", true,
+	 "Sehr schnell, kostenloser Key mit Tageslimit: <a href=\"https://console.groq.com/keys\">console.groq.com/keys</a>. "
+	 "Nach dem Eintragen „Modelle laden“ und ein Modell mit Bildverständnis wählen."},
+	{"mistral", "Mistral (kostenloser Key, EU)", "https://api.mistral.ai/v1", "mistral-small-latest", "", true,
+	 "Europäischer Anbieter, kostenloser Key mit Limit: <a href=\"https://console.mistral.ai/api-keys\">"
+	 "console.mistral.ai</a>. Achtung: Im Gratis-Modus darf Mistral Anfragen zum Training nutzen – in den "
+	 "Datenschutz-Einstellungen deines Mistral-Kontos kannst du widersprechen."},
 };
+
+const std::vector<Provider> kDisplayOrder = {Provider::Ollama,   Provider::LmStudio,   Provider::Jan,
+					     Provider::LlamaCpp, Provider::Gemini,     Provider::Groq,
+					     Provider::Mistral,  Provider::OpenRouter, Provider::Claude,
+					     Provider::Custom};
 
 const char *titleModeId(TitleMode mode)
 {
@@ -138,6 +160,17 @@ const VoiceModelInfo &voiceModel(const std::string &id)
 const ProviderInfo &providerInfo(Provider provider)
 {
 	return kProviders[static_cast<int>(provider)];
+}
+
+const std::vector<Provider> &providerDisplayOrder()
+{
+	return kDisplayOrder;
+}
+
+bool isLocalProvider(Provider provider)
+{
+	return provider == Provider::Ollama || provider == Provider::LmStudio || provider == Provider::Jan ||
+	       provider == Provider::LlamaCpp;
 }
 
 std::string Settings::activeModel() const
@@ -248,7 +281,10 @@ Settings loadSettings()
 	getBool("title_emojis", s.titleEmojis);
 	getString("twitch_tags", s.twitchTags);
 	getBool("progress_titles", s.progressTitles);
-	getInt("progress_minutes", s.progressMinutes, 5, 240);
+	getString("progress_level", s.progressLevel);
+	getString("youtube_client_id", s.youtubeClientId);
+	getString("youtube_client_secret", s.youtubeClientSecret);
+	getInt("progress_minutes", s.progressMinutes, 2, 240);
 	getBool("voice_enabled", s.voiceEnabled);
 	getString("voice_source", s.voiceSource);
 	getString("voice_model", s.voiceModel);
@@ -312,6 +348,9 @@ void saveSettings(const Settings &s)
 	obs_data_set_bool(data, "title_emojis", s.titleEmojis);
 	obs_data_set_string(data, "twitch_tags", s.twitchTags.c_str());
 	obs_data_set_bool(data, "progress_titles", s.progressTitles);
+	obs_data_set_string(data, "progress_level", s.progressLevel.c_str());
+	obs_data_set_string(data, "youtube_client_id", s.youtubeClientId.c_str());
+	obs_data_set_string(data, "youtube_client_secret", s.youtubeClientSecret.c_str());
 	obs_data_set_int(data, "progress_minutes", s.progressMinutes);
 	obs_data_set_bool(data, "voice_enabled", s.voiceEnabled);
 	obs_data_set_string(data, "voice_source", s.voiceSource.c_str());

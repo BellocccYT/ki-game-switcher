@@ -124,6 +124,7 @@ SettingsDialog::SettingsDialog(Switcher *switcher, QWidget *parent)
 	auto *tabs = new QTabWidget;
 	tabs->addTab(createAiTab(), "KI");
 	tabs->addTab(createTwitchTab(), "Twitch");
+	tabs->addTab(createYouTubeTab(), "YouTube");
 	tabs->addTab(createDetectionTab(), "Erkennung");
 	tabs->addTab(createTitleTab(), "Titel");
 	tabs->addTab(createVoiceTab(), "Stimme");
@@ -140,7 +141,9 @@ SettingsDialog::SettingsDialog(Switcher *switcher, QWidget *parent)
 	layout->addWidget(buttons);
 
 	connect(switcher, &Switcher::statusChanged, this, &SettingsDialog::refreshTwitch);
+	connect(switcher, &Switcher::statusChanged, this, &SettingsDialog::refreshYouTube);
 	refreshTwitch();
+	refreshYouTube();
 
 	// Download-Fortschritt und erkannter Text der Spracherkennung
 	auto *voiceTimer = new QTimer(this);
@@ -155,8 +158,8 @@ QWidget *SettingsDialog::createAiTab()
 	auto *form = formPage(page);
 
 	provider_ = new QComboBox;
-	for (int i = 0; i < kProviderCount; i++)
-		provider_->addItem(providerInfo(static_cast<Provider>(i)).label);
+	for (Provider provider : providerDisplayOrder())
+		provider_->addItem(providerInfo(provider).label, static_cast<int>(provider));
 	form->addRow("Anbieter:", provider_);
 
 	providerHelp_ = hint({});
@@ -198,12 +201,12 @@ QWidget *SettingsDialog::createAiTab()
 	baseUrl_ = new QLineEdit;
 	form->addRow("Server-URL:", baseUrl_);
 
-	connect(provider_, &QComboBox::currentIndexChanged, this, [this](int index) {
+	connect(provider_, &QComboBox::currentIndexChanged, this, [this] {
 		storeProvider(shownProvider_);
-		showProvider(index);
+		showProvider(provider_->currentData().toInt());
 	});
-	provider_->setCurrentIndex(static_cast<int>(settings_.provider));
-	showProvider(provider_->currentIndex());
+	provider_->setCurrentIndex(std::max(0, provider_->findData(static_cast<int>(settings_.provider))));
+	showProvider(provider_->currentData().toInt());
 	return page;
 }
 
@@ -415,9 +418,16 @@ QWidget *SettingsDialog::createTitleTab()
 				    "Abschnitt so oft hintereinander erkennen, wie unter „Erkennung → Bestätigungen“ "
 				    "eingestellt.");
 	progressForm->addRow(progressTitles_);
+	progressLevel_ = new QComboBox;
+	progressLevel_->addItem("Selten – nur große Abschnitte (neues Level, Bosskampf, neue Welt)",
+				QStringLiteral("big"));
+	progressLevel_->addItem("Normal – auch neue Gebiete, Runden, Siege und Niederlagen", QStringLiteral("normal"));
+	progressLevel_->addItem("Häufig – bei jeder deutlich anderen Situation", QStringLiteral("often"));
+	progressLevel_->setCurrentIndex(std::max(0, progressLevel_->findData(qstr(settings_.progressLevel))));
+	progressForm->addRow("Wie oft:", progressLevel_);
 	progressMinutes_ = new QSpinBox;
-	progressMinutes_->setRange(5, 240);
-	progressMinutes_->setSingleStep(5);
+	progressMinutes_->setRange(2, 240);
+	progressMinutes_->setSingleStep(1);
 	progressMinutes_->setSuffix(" min");
 	progressMinutes_->setValue(settings_.progressMinutes);
 	progressForm->addRow("Frühestens alle:", progressMinutes_);
@@ -431,6 +441,7 @@ QWidget *SettingsDialog::createTitleTab()
 		titleTemplate_->setEnabled(mode != TitleMode::Keep);
 		progressTitles_->setEnabled(mode != TitleMode::Keep);
 		progressMinutes_->setEnabled(mode != TitleMode::Keep && progressTitles_->isChecked());
+		progressLevel_->setEnabled(mode != TitleMode::Keep && progressTitles_->isChecked());
 		updateTitlePreview();
 	};
 	connect(titleMode_, &QComboBox::currentIndexChanged, this, updateEnabled);
@@ -458,6 +469,85 @@ void SettingsDialog::updateTitlePreview()
 						       : fillTemplate(titleTemplate_->text().toStdString(), "Minecraft",
 								      "Bosskampf gegen den Enderdrachen", {"Hardcore"});
 	titlePreview_->setText(qstr(composeTitle(example, core)).toHtmlEscaped());
+}
+
+QWidget *SettingsDialog::createYouTubeTab()
+{
+	auto *page = new QWidget;
+	auto *form = formPage(page);
+	form->addRow(hint(
+		"Das Plugin ändert bei YouTube den <b>Titel</b> deines Livestreams (eine Spiel-Kategorie wie bei Twitch "
+		"bietet die YouTube-Schnittstelle nicht an). Dafür brauchst du einmalig ein eigenes, kostenloses "
+		"Google-Cloud-Projekt:<ol>"
+		"<li><a href=\"https://console.cloud.google.com/projectcreate\">Projekt anlegen</a> (Name egal)</li>"
+		"<li><a href=\"https://console.cloud.google.com/apis/library/youtube.googleapis.com\">YouTube Data API v3</a> "
+		"aktivieren</li>"
+		"<li><a href=\"https://console.cloud.google.com/auth/overview\">OAuth-Zustimmungsbildschirm</a> einrichten: "
+		"Typ <b>Extern</b>, und unter <b>Zielgruppe → Testnutzer</b> dein eigenes Google-Konto eintragen</li>"
+		"<li><a href=\"https://console.cloud.google.com/auth/clients\">Client erstellen</a>: Typ <b>Fernseher "
+		"und Geräte mit begrenzter Eingabe</b></li>"
+		"<li>Client-ID und Clientschlüssel unten eintragen, speichern und auf <b>Mit YouTube verbinden</b> "
+		"klicken</li></ol>"
+		"Google zeigt beim Verbinden einen Hinweis „App nicht überprüft“ – das ist bei eigenen Projekten normal "
+		"(<b>Weiter</b>). Das Tageslimit deines Projekts reicht für rund 150 Titeländerungen."));
+
+	youtubeClientId_ = new QLineEdit(qstr(settings_.youtubeClientId));
+	youtubeClientId_->setPlaceholderText("….apps.googleusercontent.com");
+	form->addRow("Client-ID:", youtubeClientId_);
+	youtubeClientSecret_ = new QLineEdit(qstr(settings_.youtubeClientSecret));
+	youtubeClientSecret_->setEchoMode(QLineEdit::Password);
+	form->addRow("Clientschlüssel:", youtubeClientSecret_);
+
+	youtubeStatus_ = new QLabel;
+	youtubeButton_ = new QPushButton;
+	auto *row = new QHBoxLayout;
+	row->addWidget(youtubeStatus_, 1);
+	row->addWidget(youtubeButton_);
+	form->addRow("Konto:", row);
+	connect(youtubeButton_, &QPushButton::clicked, this, [this] {
+		if (!switcher_)
+			return;
+		const StatusSnapshot s = switcher_->status();
+		if (s.youtubeLoginRunning) {
+			switcher_->cancelYouTubeLogin();
+		} else if (s.youtubeConnected) {
+			switcher_->disconnectYouTube();
+		} else {
+			// Zugangsdaten zuerst übernehmen, damit der Login sie nutzt
+			Settings changed = switcher_->settings();
+			changed.youtubeClientId = text(youtubeClientId_);
+			changed.youtubeClientSecret = text(youtubeClientSecret_);
+			if (changed.youtubeClientId.empty() || changed.youtubeClientSecret.empty()) {
+				QMessageBox::information(this, windowTitle(),
+							 "Bitte zuerst Client-ID und Clientschlüssel eintragen.");
+				return;
+			}
+			settings_.youtubeClientId = changed.youtubeClientId;
+			settings_.youtubeClientSecret = changed.youtubeClientSecret;
+			switcher_->setSettings(changed);
+			switcher_->connectYouTube();
+		}
+	});
+	return page;
+}
+
+void SettingsDialog::refreshYouTube()
+{
+	if (!switcher_)
+		return;
+	const StatusSnapshot s = switcher_->status();
+	if (s.youtubeLoginRunning) {
+		youtubeStatus_->setText(s.loginService == "YouTube" && !s.deviceCode.isEmpty()
+						? "Im Browser den Code " + s.deviceCode + " bestätigen …"
+						: QString("Anmeldung läuft …"));
+		youtubeButton_->setText("Abbrechen");
+	} else if (s.youtubeConnected) {
+		youtubeStatus_->setText("Verbunden: " + s.youtubeChannel);
+		youtubeButton_->setText("Trennen");
+	} else {
+		youtubeStatus_->setText("Nicht verbunden");
+		youtubeButton_->setText("Mit YouTube verbinden");
+	}
 }
 
 QWidget *SettingsDialog::createVoiceTab()
@@ -631,7 +721,7 @@ void SettingsDialog::showProvider(int index)
 
 	providerHelp_->setText(info.help);
 	apiKey_->setText(qstr(values.apiKey));
-	apiKey_->setEnabled(provider != Provider::Ollama);
+	apiKey_->setEnabled(!isLocalProvider(provider));
 	apiKey_->setPlaceholderText(info.needsKey ? "erforderlich" : "optional");
 
 	model_->clear();
@@ -754,6 +844,9 @@ void SettingsDialog::save()
 	settings_.titleSuffix = text(titleSuffix_);
 	settings_.progressTitles = progressTitles_->isChecked();
 	settings_.progressMinutes = progressMinutes_->value();
+	settings_.progressLevel = progressLevel_->currentData().toString().toStdString();
+	settings_.youtubeClientId = text(youtubeClientId_);
+	settings_.youtubeClientSecret = text(youtubeClientSecret_);
 
 	settings_.voiceEnabled = voiceEnabled_->isChecked();
 	settings_.voiceSource = voiceSource_->currentData().toString().toStdString();

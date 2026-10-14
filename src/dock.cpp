@@ -106,6 +106,10 @@ SwitcherDock::SwitcherDock(Switcher *switcher, QWidget *parent) : QWidget(parent
 	twitchRow->addWidget(twitchButton_);
 	layout->addLayout(twitchRow);
 
+	youtube_ = new QLabel;
+	youtube_->setWordWrap(true);
+	layout->addWidget(youtube_);
+
 	deviceCode_ = new QLabel;
 	deviceCode_->setWordWrap(true);
 	deviceCode_->setTextFormat(Qt::RichText);
@@ -183,8 +187,8 @@ void SwitcherDock::refresh()
 								 : QString("Prüft gerade …")));
 	else if (!s.enabled)
 		state_->setText(dot("#8b949e", "Pausiert"));
-	else if (!s.twitchConnected)
-		state_->setText(dot("#e3a008", "Twitch nicht verbunden"));
+	else if (!s.twitchConnected && !s.youtubeConnected)
+		state_->setText(dot("#e3a008", "Nicht mit Twitch oder YouTube verbunden"));
 	else if (s.onlyLive && !s.streaming)
 		state_->setText(dot("#8b949e", "Wartet, bis du live bist (OBS oder Twitch)"));
 	else if (s.holdMinutes > 0)
@@ -192,9 +196,10 @@ void SwitcherDock::refresh()
 			"#3fb950",
 			QString("Aktiv – nach deiner Korrektur stellt die KI noch %1 min nicht um").arg(s.holdMinutes)));
 	else if (s.secondsUntilCheck >= 0)
-		state_->setText(dot("#3fb950", QString("Aktiv%1 – nächste Prüfung in %2 s")
-						       .arg(s.liveOnTwitch ? " (live laut Twitch)" : "")
-						       .arg(s.secondsUntilCheck)));
+		state_->setText(
+			dot("#3fb950", QString("Aktiv%1 – nächste Prüfung in %2 s")
+					       .arg(s.liveOnTwitch ? " (live laut " + s.liveSource + ")" : QString())
+					       .arg(s.secondsUntilCheck)));
 	else
 		state_->setText(dot("#3fb950", "Aktiv"));
 
@@ -222,10 +227,14 @@ void SwitcherDock::refresh()
 
 	deviceCode_->setVisible(!s.deviceCode.isEmpty());
 	if (!s.deviceCode.isEmpty()) {
-		deviceCode_->setText(QString("Bestätige im Browser den Code <b>%1</b><br><a href=\"%2\">Twitch-Seite "
-					     "öffnen</a>")
-					     .arg(s.deviceCode.toHtmlEscaped(), s.verificationUri.toHtmlEscaped()));
+		const QString service = s.loginService.isEmpty() ? QStringLiteral("Twitch") : s.loginService;
+		deviceCode_->setText(
+			QString("Bestätige im Browser den Code <b>%1</b><br><a href=\"%2\">%3-Anmeldung "
+				"öffnen</a>")
+				.arg(s.deviceCode.toHtmlEscaped(), s.verificationUri.toHtmlEscaped(), service));
 	}
+	youtube_->setVisible(s.youtubeConnected);
+	youtube_->setText("YouTube: " + s.youtubeChannel);
 
 	notice_->setVisible(!s.notice.isEmpty());
 	notice_->setText(s.notice);
@@ -233,7 +242,7 @@ void SwitcherDock::refresh()
 	pauseButton_->setText(s.enabled ? "Pausieren" : "Fortsetzen");
 	checkButton_->setEnabled(!s.busy);
 	testButton_->setEnabled(!s.busy);
-	correctButton_->setEnabled(s.twitchConnected);
+	correctButton_->setEnabled(s.twitchConnected || s.youtubeConnected);
 }
 
 void SwitcherDock::updatePreview()

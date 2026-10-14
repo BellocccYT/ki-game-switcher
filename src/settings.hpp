@@ -24,8 +24,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 namespace kgs {
 
-enum class Provider { Gemini = 0, OpenRouter, Ollama, Custom, Claude };
-constexpr int kProviderCount = 5;
+// Werte bleiben stabil (Index in der Konfiguration); neue Anbieter kommen hinten dazu
+enum class Provider { Gemini = 0, OpenRouter, Ollama, Custom, Claude, LmStudio, Jan, LlamaCpp, Groq, Mistral };
+constexpr int kProviderCount = 10;
 
 struct ProviderInfo {
 	const char *id; // Schlüssel in der Konfigurationsdatei
@@ -38,6 +39,9 @@ struct ProviderInfo {
 };
 
 const ProviderInfo &providerInfo(Provider provider);
+// Reihenfolge in der Auswahlliste: lokal und ohne Key zuerst
+const std::vector<Provider> &providerDisplayOrder();
+bool isLocalProvider(Provider provider);
 
 enum class TitleMode { Ai = 0, Template, Keep };
 
@@ -102,18 +106,22 @@ struct Settings {
 	TitleMode titleMode = TitleMode::Ai;
 	std::string titleTemplate = "{game} – live! 🎮";
 	std::string titlePreset = "locker";
-	std::string titleStyle;           // eigene Ergänzungen zur Stilvorgabe
-	std::string titlePrefix;          // steht immer vorne im Titel, egal welches Modell
-	std::string titleSuffix;          // steht immer hinten im Titel, egal welches Modell
-	std::string titleLanguage = "de"; // „de“ oder „en“
-	bool titleEmojis = true;          // aus = das Plugin entfernt Emojis aus Titeln
-	std::string twitchTags;           // bei jedem Wechsel setzen (leer = Tags nicht anfassen)
-	bool progressTitles = true;       // Titel auch bei Fortschritt im selben Spiel anpassen
-	int progressMinutes = 15;         // frühestens so oft
+	std::string titleStyle;               // eigene Ergänzungen zur Stilvorgabe
+	std::string titlePrefix;              // steht immer vorne im Titel, egal welches Modell
+	std::string titleSuffix;              // steht immer hinten im Titel, egal welches Modell
+	std::string titleLanguage = "de";     // „de“ oder „en“
+	bool titleEmojis = true;              // aus = das Plugin entfernt Emojis aus Titeln
+	std::string twitchTags;               // bei jedem Wechsel setzen (leer = Tags nicht anfassen)
+	bool progressTitles = true;           // Titel auch bei Fortschritt im selben Spiel anpassen
+	std::string progressLevel = "normal"; // „big“, „normal“ oder „often“ – was als neuer Abschnitt zählt
+	int progressMinutes = 15;             // frühestens so oft
 
 	bool voiceEnabled = false;
 	std::string voiceSource; // leer = Mikrofon automatisch wählen
 	std::string voiceModel = "base";
+
+	std::string youtubeClientId; // eigenes Google-Cloud-Projekt (Typ „Fernseher und Geräte mit begrenzter Eingabe“)
+	std::string youtubeClientSecret;
 
 	const ProviderSettings &activeProvider() const { return providers[static_cast<int>(provider)]; }
 	std::string activeModel() const;

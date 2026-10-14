@@ -32,7 +32,7 @@ int coreTitleLimit(const Settings &settings);
 
 // Setzt die festen Vorgaben vorne und hinten an – unabhängig vom Modell – und kürzt auf 140 Zeichen.
 // Steht eine Vorgabe schon im Kern (die KI hat sie übernommen), wird sie nicht doppelt angehängt.
-std::string composeTitle(const Settings &settings, const std::string &core);
+std::string composeTitle(const Settings &settings, const std::string &core, int limit = kTwitchTitleLimit);
 
 // Füllt die Vorlage: {game}, {scene}, {keywords}. Leere Platzhalter verschwinden samt Trennzeichen.
 std::string fillTemplate(const std::string &templ, const std::string &game, const std::string &scene,

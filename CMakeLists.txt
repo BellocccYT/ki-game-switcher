@@ -76,6 +76,8 @@ target_sources(
     src/title.hpp
     src/voice.cpp
     src/voice.hpp
+    src/youtube.cpp
+    src/youtube.hpp
     src/dock.cpp
     src/dock.hpp
     src/settings-dialog.cpp

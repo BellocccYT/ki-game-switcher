@@ -21,6 +21,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "ai-client.hpp"
 #include "settings.hpp"
 #include "twitch.hpp"
+#include "youtube.hpp"
 
 #include <QImage>
 #include <QObject>
@@ -42,13 +43,18 @@ struct StatusSnapshot {
 	bool enabled = true;
 	bool onlyLive = true;
 	bool streaming = false;    // OBS streamt oder Twitch meldet den Kanal als live
-	bool liveOnTwitch = false; // live laut Twitch (ohne Streamstart in OBS)
+	bool liveOnTwitch = false; // live laut Plattform (ohne Streamstart in OBS)
+	QString liveSource;        // „Twitch“ oder „YouTube“
 	bool busy = false;
 	int busySeconds = 0;        // wie lange die laufende KI-Anfrage schon dauert
 	int secondsUntilCheck = -1; // -1 = keine Prüfung geplant
 	bool twitchConnected = false;
 	QString twitchLogin;
 	bool loginRunning = false;
+	QString loginService; // „Twitch“ oder „YouTube“ – für den Gerätecode
+	bool youtubeConnected = false;
+	QString youtubeChannel;
+	bool youtubeLoginRunning = false;
 	QString deviceCode;
 	QString verificationUri;
 	QString detection; // z. B. „Elden Ring (95 %)“
@@ -89,6 +95,9 @@ public:
 	void connectTwitch();
 	void cancelTwitchLogin();
 	void disconnectTwitch();
+	void connectYouTube();
+	void cancelYouTubeLogin();
+	void disconnectYouTube();
 
 	StatusSnapshot status() const;
 
@@ -106,8 +115,9 @@ private:
 	void apply(const Settings &cfg, const Category &category, const std::string &scene,
 		   const std::vector<std::string> &keywords, const GameRule *rule);
 	void maybeProgressTitle(const Settings &cfg, const Detection &detection, const GameRule *rule);
-	std::string makeTitle(const Settings &cfg, const std::string &game, const std::string &scene,
-			      const std::vector<std::string> &keywords, const std::string &previousTitle);
+	// Kern des Titels (ohne feste Teile); composeTitle macht daraus den Titel für die jeweilige Plattform
+	std::string makeTitleCore(const Settings &cfg, const std::string &game, const std::string &scene,
+				  const std::vector<std::string> &keywords, const std::string &previousTitle);
 	std::vector<std::string> speechKeywords(const Settings &cfg, const std::string &game);
 	// Ergebnis des Steam-Abgleichs: Name der Kategorie, auf die umgestellt werden darf; leer = abgelehnt
 	std::optional<std::string> verifyWithSteam(const Settings &cfg, const EncodedImage &image,
@@ -116,6 +126,9 @@ private:
 	void refreshChannel();
 	void pollTwitchLive();
 	void loginTask(const std::string &clientId);
+	void youtubeLoginTask(const std::string &clientId, const std::string &clientSecret);
+	std::optional<Category> resolveCategory(const std::string &name);
+	void publishYouTube(const std::string &title);
 	void runInBackground(std::function<void()> task);
 
 	void addHistory(const QString &text);
@@ -133,7 +146,8 @@ private:
 	std::optional<std::chrono::steady_clock::time_point> holdUntil_;
 	bool dueNow_ = true;
 	bool streaming_ = false;  // OBS-Streamausgabe läuft
-	bool twitchLive_ = false; // Twitch meldet den Kanal als live
+	bool twitchLive_ = false; // Twitch oder YouTube meldet den Kanal als live
+	QString liveSource_;
 	std::optional<std::chrono::steady_clock::time_point> nextLivePoll_;
 	bool livePollFailed_ = false;
 	std::optional<std::chrono::steady_clock::time_point> nextCheck_;
@@ -142,6 +156,7 @@ private:
 	bool busy_ = false;
 	std::chrono::steady_clock::time_point busySince_{};
 	QString deviceCode_;
+	QString loginService_;
 	QString verificationUri_;
 	QString detection_;
 	QString detectionReason_;
@@ -157,10 +172,11 @@ private:
 	std::string candidate_;
 	int candidateHits_ = 0;
 	QString lastDetectionLabel_;
-	std::string lastScene_;    // zuletzt angezeigte Situation (für den Verlauf)
-	std::string lastBlocked_;  // zuletzt gemeldete gesperrte Kategorie
-	std::string recentSpeech_; // was in den letzten Minuten gesagt wurde (für Stichwörter)
-	std::string titleScene_;   // Situation, zu der der aktuelle Titel passt
+	std::string lastScene_;     // zuletzt angezeigte Situation (für den Verlauf)
+	std::string lastBlocked_;   // zuletzt gemeldete gesperrte Kategorie
+	std::string recentSpeech_;  // was in den letzten Minuten gesagt wurde (für Stichwörter)
+	std::string titleScene_;    // Situation, zu der der aktuelle Titel passt
+	std::string titleActivity_; // Aktivität beim letzten Titel (Bosskampf, Erkunden …)
 	int progressHits_ = 0;
 	bool progressWaitLogged_ = false;
 	std::optional<std::chrono::steady_clock::time_point> lastTitleChange_;
@@ -170,8 +186,12 @@ private:
 	std::atomic<bool> refreshChannel_{true};
 	std::atomic<bool> loginRunning_{false};
 	std::atomic<bool> cancelLogin_{false};
+	std::atomic<bool> youtubeLoginRunning_{false};
+	std::atomic<bool> cancelYouTubeLogin_{false};
+	bool youtubeNoLiveLogged_ = false;
 
 	Twitch twitch_;
+	YouTube youtube_;
 	std::thread worker_;
 	std::mutex helpersMutex_;
 	std::vector<std::thread> helpers_;

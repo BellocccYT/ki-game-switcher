@@ -21,6 +21,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "frame-grabber.hpp"
 #include "settings.hpp"
 
+#include <QString>
+
 #include <string>
 #include <vector>
 
@@ -40,9 +42,14 @@ AiTarget aiTargetFrom(const Settings &settings);
 struct DetectContext {
 	std::string appHint;             // aufgenommene Programme und aktives Fenster
 	std::string previousGame;        // zuletzt erkanntes Spiel (Twitch-Kategorie)
-	std::string previousScene;       // Spielsituation beim letzten Titel
 	std::string language = "German"; // Sprache für Situation und Stichwörter
 };
+
+// Aktivitäten, aus denen die KI genau eine wählt. Ob ein Wechsel ein „neuer Abschnitt“ ist, entscheidet der
+// Code – kleine Modelle halten sonst auch dieselbe Situation in anderen Worten für neu.
+bool isNewSection(const std::string &level, const std::string &previousActivity, const std::string &activity);
+bool isNeutralActivity(const std::string &activity);
+QString activityLabel(const std::string &activity);
 
 struct Detection {
 	bool isGame = false;
@@ -51,7 +58,7 @@ struct Detection {
 	double confidence = 0.0;
 	std::string reason;
 	std::string scene;                     // kurze Beschreibung der Spielsituation, z. B. „Bosskampf gegen …“
-	bool progressChanged = false;          // deutlich neuer Abschnitt im selben Spiel
+	std::string activity;                  // z. B. „boss_fight“, „exploring“ (feste Liste)
 	std::vector<std::string> alternatives; // andere infrage kommende Spiele
 	std::vector<std::string> keywords;     // Stichwörter aus dem Gesprochenen (extractKeywords)
 	std::string model;                     // Modell, das tatsächlich geantwortet hat

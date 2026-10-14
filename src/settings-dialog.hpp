@@ -54,6 +54,8 @@ private:
 	QWidget *createDetectionTab();
 	QWidget *createTitleTab();
 	QWidget *createVoiceTab();
+	QWidget *createYouTubeTab();
+	void refreshYouTube();
 	QWidget *createRulesTab();
 	void updateTitlePreview();
 	void refreshVoice();
@@ -107,6 +109,7 @@ private:
 	QLineEdit *titleSuffix_;
 	QLabel *titlePreview_;
 	QCheckBox *progressTitles_;
+	QComboBox *progressLevel_;
 	QSpinBox *progressMinutes_;
 
 	QCheckBox *voiceEnabled_;
@@ -116,6 +119,11 @@ private:
 	QLabel *voiceText_;
 
 	QTableWidget *rules_;
+
+	QLineEdit *youtubeClientId_;
+	QLineEdit *youtubeClientSecret_;
+	QLabel *youtubeStatus_;
+	QPushButton *youtubeButton_;
 };
 
 } // namespace kgs

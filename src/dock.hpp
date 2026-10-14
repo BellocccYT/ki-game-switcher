@@ -59,6 +59,7 @@ private:
 	QLabel *category_;
 	QLabel *title_;
 	QLabel *twitch_;
+	QLabel *youtube_;
 	QLabel *deviceCode_;
 	QLabel *notice_;
 	QPushButton *twitchButton_;

@@ -92,7 +92,10 @@ Einstellen kannst du das unter **Einstellungen … → KI**.
 | **Google Gemini** | in der EU, der Schweiz und Großbritannien laut Googles API-Bedingungen nur kostenpflichtig (Google-Cloud-Projekt mit Abrechnung) | API-Key von [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | **OpenRouter** | kostenlose Modelle verfügbar | Key von [openrouter.ai/keys](https://openrouter.ai/keys). Ohne Guthaben nur ca. 50 Anfragen am Tag, Intervall daher mindestens 5 Minuten. |
 | **Anthropic Claude** | kostenpflichtig | Key von [platform.claude.com](https://platform.claude.com) |
-| **Eigener Server** | – | Jede OpenAI-kompatible Schnittstelle, z. B. LM Studio |
+| **LM Studio** / **Jan** / **llama.cpp** | kostenlos, lokal, ohne Key | Programm installieren, ein Bildmodell laden (z. B. Qwen3-VL) und den lokalen Server starten. Dann „Modelle laden“. |
+| **Groq** | kostenloser Key mit Tageslimit, sehr schnell | Key von [console.groq.com/keys](https://console.groq.com/keys) |
+| **Mistral** | kostenloser Key mit Limit, EU-Anbieter | Key von [console.mistral.ai](https://console.mistral.ai/api-keys). Im Gratis-Modus darf Mistral Anfragen zum Training nutzen, das lässt sich im Konto abschalten. |
+| **Eigener Server** | – | Jede OpenAI-kompatible Schnittstelle |
 
 Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei gleich ein Modell aus. Ist das Hauptmodell überlastet oder hat es sein Limit erreicht, springt automatisch das **Ersatzmodell** ein.
 
@@ -126,13 +129,26 @@ Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei 
 | | Sprache / Emojis | Deutsch oder Englisch. Mit „Emojis aus“ entfernt das Plugin Emojis selbst, egal was das Modell schreibt. |
 | | Vorlage | Platzhalter `{game}`, `{scene}` (Situation im Spiel) und `{keywords}` (Stichwörter aus deiner Stimme) |
 | | Immer vorne / hinten | Feste Teile wie `[DE]` oder `\| !discord`. Das Plugin setzt sie selbst an jeden Titel. |
-| | Spielfortschritt | Titel auch bei neuem Abschnitt im selben Spiel anpassen, frühestens alle 15 Minuten |
+| | Spielfortschritt | Titel auch bei neuem Abschnitt im selben Spiel anpassen. **Wie oft:** Selten (Bosskampf, Sieg, Niederlage), Normal (jeder Wechsel der Aktivität außer gewöhnlichen Kämpfen) oder Häufig (jeder Wechsel, sofort). Frühestens alle 15 Minuten, einstellbar ab 2 Minuten. |
+| YouTube | Client-ID / Clientschlüssel | Eigenes Google-Cloud-Projekt, Schritt-für-Schritt-Anleitung im Reiter |
 | Stimme | Stimme mithören | Lokale Spracherkennung (whisper.cpp), Mikrofon und Modell wählbar. Standard aus. |
 | Zuordnungen | | Programm, Fenstertitel enthält (für Emulatoren), Kategorie, eigener Titel, Tags |
 
 **Tastenkürzel:** Unter **OBS-Einstellungen → Tastenkürzel** findest du „KI Game Switcher: Jetzt prüfen“, „Test“ und „Pausieren / Fortsetzen“.
 
 </details>
+
+## ▶️ YouTube
+
+Das Plugin setzt auch den **Titel deines YouTube-Livestreams**, zusätzlich zu Twitch oder allein. Eine Spiel-Kategorie wie bei Twitch kennt die YouTube-Schnittstelle nicht.
+
+Dafür brauchst du einmalig ein eigenes, kostenloses Google-Cloud-Projekt. Die Anleitung steht im Reiter **Einstellungen → YouTube**:
+1. Projekt anlegen und die YouTube Data API v3 aktivieren
+2. OAuth-Zustimmungsbildschirm einrichten (Extern, dich selbst als Testnutzer eintragen)
+3. Client vom Typ „Fernseher und Geräte mit begrenzter Eingabe“ erstellen
+4. Client-ID und Clientschlüssel eintragen und auf **Mit YouTube verbinden** klicken
+
+Google zeigt dabei „App nicht überprüft“. Das ist bei eigenen Projekten normal. Das Tageslimit deines Projekts reicht für rund 150 Titeländerungen.
 
 ## 🔒 Datenschutz
 
@@ -177,7 +193,7 @@ cmake --build --preset windows-x64 --config RelWithDebInfo
 Die DLL landet in `build_x64/RelWithDebInfo/`. Den Installer baust du mit [Inno Setup 6](https://jrsoftware.org/isinfo.php), nachdem du das Plugin mit `cmake --install build_x64 --config RelWithDebInfo --prefix release/RelWithDebInfo` bereitgelegt hast:
 
 ```bash
-ISCC.exe /DAppVersion=1.2.0 installer/ki-game-switcher.iss
+ISCC.exe /DAppVersion=1.3.0 installer/ki-game-switcher.iss
 ```
 
 Für macOS und Linux gibt es die Presets `macos` und `ubuntu-x86_64`. Die GitHub-Actions-Workflows bauen alle drei Plattformen samt Windows-Setup automatisch und hängen bei Tags die Pakete an ein Release.

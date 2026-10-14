@@ -102,7 +102,7 @@ std::vector<std::string> cleanTags(const std::vector<std::string> &tags)
 	return result;
 }
 
-std::string composeTitle(const Settings &settings, const std::string &core)
+std::string composeTitle(const Settings &settings, const std::string &core, int limit)
 {
 	const QString prefix = qstr(settings.titlePrefix);
 	const QString suffix = qstr(settings.titleSuffix);
@@ -114,16 +114,16 @@ std::string composeTitle(const Settings &settings, const std::string &core)
 		body.chop(suffix.size());
 	body = body.trimmed();
 
-	const int limit = coreTitleLimit(settings);
-	if (body.size() > limit)
-		body = body.left(limit - 1).trimmed() + QStringLiteral("…");
+	const int coreLimit = std::max(20, coreTitleLimit(settings) - (kTwitchTitleLimit - limit));
+	if (body.size() > coreLimit)
+		body = body.left(coreLimit - 1).trimmed() + QStringLiteral("…");
 
 	QStringList parts;
 	for (const QString &part : {prefix, body, suffix}) {
 		if (!part.isEmpty())
 			parts << part;
 	}
-	return parts.join(' ').left(kTwitchTitleLimit).toStdString();
+	return parts.join(' ').left(limit).toStdString();
 }
 
 std::string fillTemplate(const std::string &templ, const std::string &game, const std::string &scene,
