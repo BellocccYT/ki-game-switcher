@@ -1,17 +1,21 @@
 <div align="center">
 
-# 🎮 KI Game Switcher für OBS
+<img src="docs/logo.png" width="110" alt="TitleSync-Logo">
+
+# TitleSync für OBS
 
 **Du wechselst das Spiel, dein Stream zieht automatisch mit.**
 
-Das OBS-Plugin erkennt per KI, was gerade in deinem Stream läuft, und stellt **Twitch-Kategorie und -Titel** von selbst um. Kostenlos, ohne API-Key, direkt in OBS.
+Das OBS-Plugin erkennt per KI, was gerade in deinem Stream läuft, und hält **Titel und Kategorie auf Twitch und YouTube** automatisch aktuell. Kostenlos, ohne API-Key, direkt in OBS.
 
-[![Neueste Version](https://img.shields.io/github/v/release/BellocccYT/ki-game-switcher?label=Version&color=9146FF)](https://github.com/BellocccYT/ki-game-switcher/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/BellocccYT/ki-game-switcher/total?label=Downloads&color=9146FF)](https://github.com/BellocccYT/ki-game-switcher/releases)
+*(früher „KI Game Switcher“)*
+
+[![Neueste Version](https://img.shields.io/github/v/release/BellocccYT/titlesync?label=Version&color=9146FF)](https://github.com/BellocccYT/titlesync/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/BellocccYT/titlesync/total?label=Downloads&color=9146FF)](https://github.com/BellocccYT/titlesync/releases)
 [![OBS Studio 31+](https://img.shields.io/badge/OBS%20Studio-31%2B-302E31?logo=obsstudio&logoColor=white)](https://obsproject.com)
 [![Lizenz: GPL-2.0](https://img.shields.io/badge/Lizenz-GPL--2.0-blue)](LICENSE)
 
-### [⬇️ Setup für Windows herunterladen](https://github.com/BellocccYT/ki-game-switcher/releases/latest)
+### [⬇️ Setup für Windows herunterladen](https://github.com/BellocccYT/titlesync/releases/latest) · [🌐 Webseite](https://bellocccyt.github.io/titlesync/)
 
 </div>
 
@@ -47,9 +51,9 @@ Geprüft wird standardmäßig **nur während du live bist**, einmal pro Minute, 
 
 ## 🚀 Installation (Windows)
 
-1. **[Setup herunterladen](https://github.com/BellocccYT/ki-game-switcher/releases/latest)** (`ki-game-switcher-…-windows-x64-setup.exe`) und starten.
+1. **[Setup herunterladen](https://github.com/BellocccYT/titlesync/releases/latest)** (`titlesync-…-windows-x64-setup.exe`) und starten.
 2. Haken bei **„Ollama installieren und Bildmodell laden“** lassen. Damit bekommst du die kostenlose KI gleich mit. Das sind ca. 4,9 GB Download, und deine Grafikkarte braucht mindestens 4 GB Speicher.
-3. OBS starten. Das Dock **KI Game Switcher** erscheint automatisch.
+3. OBS starten. Das Dock **TitleSync** erscheint automatisch.
 4. Im Dock auf **Einstellungen … → Twitch → Mit Twitch verbinden** klicken. Fertig! 🎉
 
 > [!NOTE]
@@ -63,11 +67,11 @@ Voraussetzung ist **OBS Studio 31 oder neuer**. Deinstallieren kannst du über *
 <details>
 <summary>Manuell mit der ZIP-Datei installieren</summary>
 
-1. Unter [Releases](https://github.com/BellocccYT/ki-game-switcher/releases/latest) die Datei `ki-game-switcher-…-windows-x64.zip` herunterladen
+1. Unter [Releases](https://github.com/BellocccYT/titlesync/releases/latest) die Datei `titlesync-…-windows-x64.zip` herunterladen
 2. OBS schließen
-3. Den Inhalt der ZIP nach `C:\ProgramData\obs-studio\plugins\` entpacken. Danach existiert `C:\ProgramData\obs-studio\plugins\ki-game-switcher\bin\64bit\ki-game-switcher.dll`.
+3. Den Inhalt der ZIP nach `C:\ProgramData\obs-studio\plugins\` entpacken. Danach existiert `C:\ProgramData\obs-studio\plugins\titlesync\bin\64bit\titlesync.dll`.
 4. Ollama von [ollama.com](https://ollama.com) installieren und `ollama pull qwen3-vl:4b-instruct` ausführen
-5. OBS starten → **Docks → KI Game Switcher**
+5. OBS starten → **Docks → TitleSync**
 
 </details>
 
@@ -134,7 +138,7 @@ Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei 
 | Stimme | Stimme mithören | Lokale Spracherkennung (whisper.cpp), Mikrofon und Modell wählbar. Standard aus. |
 | Zuordnungen | | Programm, Fenstertitel enthält (für Emulatoren), Kategorie, eigener Titel, Tags |
 
-**Tastenkürzel:** Unter **OBS-Einstellungen → Tastenkürzel** findest du „KI Game Switcher: Jetzt prüfen“, „Test“ und „Pausieren / Fortsetzen“.
+**Tastenkürzel:** Unter **OBS-Einstellungen → Tastenkürzel** findest du „TitleSync: Jetzt prüfen“, „Test“ und „Pausieren / Fortsetzen“.
 
 </details>
 
@@ -157,7 +161,7 @@ Google zeigt dabei „App nicht überprüft“. Das ist bei eigenen Projekten no
 - **Stimme:** Die Spracherkennung läuft lokal auf dem Prozessor. Es wird nichts aufgezeichnet oder gespeichert. Im Arbeitsspeicher liegen nur die letzten zwei Minuten Audio und der erkannte Text der letzten drei Minuten. Der Text geht nur dann an die gewählte KI, wenn ein neuer Titel geschrieben wird, bei Ollama also nirgendwohin. Das Sprachmodell wird beim Einschalten einmalig von huggingface.co geladen.
 - **Steam-Abgleich:** Das Plugin fragt beim Steam-Shop nach dem vermuteten Spielnamen und lädt zwei öffentliche Screenshots. Dein Streambild geht dabei nicht an Steam.
 - Twitch erlaubt dem Plugin nur, Titel, Kategorie und Tags deines Kanals zu ändern (`channel:manage:broadcast`).
-- API-Keys und der Twitch-Login liegen nur lokal in `%APPDATA%\obs-studio\plugin_config\ki-game-switcher\`. **Trennen** löscht den Twitch-Login.
+- API-Keys und der Twitch-Login liegen nur lokal in `%APPDATA%\obs-studio\plugin_config\titlesync\`. **Trennen** löscht den Twitch-Login.
 
 ## 🛠️ Fehlerbehebung
 
@@ -173,7 +177,7 @@ Meldungen erscheinen im Dock und im Verlauf, Details stehen im OBS-Log (**Hilfe 
 | `Limit für … erreicht` | Kontingent aufgebraucht. Intervall erhöhen oder später wieder versuchen. |
 | `Twitch-Anmeldung abgelaufen` | Nach 30 Tagen ohne Nutzung neu verbinden |
 
-Ein Fehler oder eine Idee? Schreib ein [Issue](https://github.com/BellocccYT/ki-game-switcher/issues)!
+Ein Fehler oder eine Idee? Schreib ein [Issue](https://github.com/BellocccYT/titlesync/issues)!
 
 ## 🧑‍💻 Selbst bauen
 
@@ -193,7 +197,7 @@ cmake --build --preset windows-x64 --config RelWithDebInfo
 Die DLL landet in `build_x64/RelWithDebInfo/`. Den Installer baust du mit [Inno Setup 6](https://jrsoftware.org/isinfo.php), nachdem du das Plugin mit `cmake --install build_x64 --config RelWithDebInfo --prefix release/RelWithDebInfo` bereitgelegt hast:
 
 ```bash
-ISCC.exe /DAppVersion=1.3.0 installer/ki-game-switcher.iss
+ISCC.exe /DAppVersion=1.4.0 installer/titlesync.iss
 ```
 
 Für macOS und Linux gibt es die Presets `macos` und `ubuntu-x86_64`. Die GitHub-Actions-Workflows bauen alle drei Plattformen samt Windows-Setup automatisch und hängen bei Tags die Pakete an ein Release.

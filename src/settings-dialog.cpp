@@ -1,5 +1,5 @@
 /*
-KI Game Switcher
+TitleSync
 Copyright (C) 2026 Belloccc
 
 This program is free software; you can redistribute it and/or modify
@@ -118,7 +118,7 @@ SettingsDialog::SettingsDialog(Switcher *switcher, QWidget *parent)
 	  switcher_(switcher),
 	  settings_(switcher->settings())
 {
-	setWindowTitle("KI Game Switcher – Einstellungen");
+	setWindowTitle("TitleSync – Einstellungen");
 	setMinimumWidth(680);
 
 	auto *tabs = new QTabWidget;

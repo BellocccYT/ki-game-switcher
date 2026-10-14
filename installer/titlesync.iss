@@ -1,21 +1,21 @@
-; Windows-Installer für den KI Game Switcher (Inno Setup 6)
+; Windows-Installer für TitleSync (Inno Setup 6)
 ;
 ; Bauen (nach "cmake --install build_x64 --prefix release/RelWithDebInfo"):
-;   ISCC.exe /DAppVersion=1.3.0 installer\ki-game-switcher.iss
-; Ergebnis: release\ki-game-switcher-<Version>-windows-x64-setup.exe
+;   ISCC.exe /DAppVersion=1.4.0 installer\titlesync.iss
+; Ergebnis: release\titlesync-<Version>-windows-x64-setup.exe
 
 #ifndef AppVersion
-  #define AppVersion "1.3.0"
+  #define AppVersion "1.4.0"
 #endif
 #ifndef SourceDir
-  #define SourceDir "..\release\RelWithDebInfo\ki-game-switcher"
+  #define SourceDir "..\release\RelWithDebInfo\titlesync"
 #endif
 #ifndef OutputDir
   #define OutputDir "..\release"
 #endif
 
-#define AppName "KI Game Switcher"
-#define AppUrl "https://github.com/BellocccYT/ki-game-switcher"
+#define AppName "TitleSync"
+#define AppUrl "https://github.com/BellocccYT/titlesync"
 #define OllamaUrl "https://ollama.com/download/OllamaSetup.exe"
 #define OllamaModel "qwen3-vl:4b-instruct"
 
@@ -28,17 +28,19 @@ AppPublisher=Belloccc
 AppPublisherURL={#AppUrl}
 AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
-UninstallDisplayName={#AppName} (OBS-Plugin)
+UninstallDisplayName={#AppName} (OBS-Plugin, früher KI Game Switcher)
 #ifdef TestDir
 ; Testbau: ohne Adminrechte in einen beliebigen Ordner
 DefaultDirName={#TestDir}
 PrivilegesRequired=lowest
 #else
 ; OBS lädt Plugins für alle Benutzer aus diesem Ordner
-DefaultDirName={commonappdata}\obs-studio\plugins\ki-game-switcher
+DefaultDirName={commonappdata}\obs-studio\plugins\titlesync
 PrivilegesRequired=admin
 #endif
 DisableDirPage=yes
+; Gleiche AppId wie „KI Game Switcher“ (Update), aber neuer Ordner – nicht den alten weiterverwenden
+UsePreviousAppDir=no
 DisableProgramGroupPage=yes
 ; Ollama und die Plugin-Einstellungen gehören dem angemeldeten Benutzer
 UsedUserAreasWarning=no
@@ -46,7 +48,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#OutputDir}
-OutputBaseFilename=ki-game-switcher-{#AppVersion}-windows-x64-setup
+OutputBaseFilename=titlesync-{#AppVersion}-windows-x64-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -56,14 +58,16 @@ Name: "de"; MessagesFile: "compiler:Languages\German.isl"
 
 [Messages]
 FinishedHeadingLabel=Fertig!
-FinishedLabelNoIcons=Der KI Game Switcher ist installiert.%n%nStarte OBS: Das Dock „KI Game Switcher“ erscheint automatisch. Unter „Einstellungen …“ verbindest du dort dein Twitch-Konto.
-FinishedLabel=Der KI Game Switcher ist installiert.%n%nStarte OBS: Das Dock „KI Game Switcher“ erscheint automatisch. Unter „Einstellungen …“ verbindest du dort dein Twitch-Konto.
+FinishedLabelNoIcons=TitleSync ist installiert.%n%nStarte OBS: Das Dock „TitleSync“ erscheint automatisch. Deine Einstellungen vom „KI Game Switcher“ werden übernommen. Unter „Einstellungen …“ verbindest du dort dein Twitch-Konto.
+FinishedLabel=TitleSync ist installiert.%n%nStarte OBS: Das Dock „TitleSync“ erscheint automatisch. Deine Einstellungen vom „KI Game Switcher“ werden übernommen. Unter „Einstellungen …“ verbindest du dort dein Twitch-Konto.
 
 [Tasks]
 Name: "ollama"; Description: "Ollama installieren und Bildmodell laden – kostenlose KI auf deinem PC, ohne API-Key (Download ca. 4,9 GB, braucht ca. 4 GB Grafikspeicher)"; Check: not OllamaInstalled
 Name: "ollamamodel"; Description: "Bildmodell {#OllamaModel} für Ollama laden (Download 3,3 GB, falls noch nicht vorhanden)"; Check: OllamaInstalled
 
 [InstallDelete]
+; Version unter altem Namen entfernen, sonst lädt OBS das Plugin doppelt
+Type: filesandordirs; Name: "{commonappdata}\obs-studio\plugins\ki-game-switcher"
 ; Reste einer älteren Version (z. B. aus der ZIP-Datei) entfernen
 Type: filesandordirs; Name: "{app}\bin"
 Type: filesandordirs; Name: "{app}\data"
@@ -216,8 +220,10 @@ var
   ConfigDir: String;
 begin
   // Nur bei der ersten Einrichtung: bestehende Einstellungen bleiben unangetastet
-  ConfigDir := ExpandConstant('{userappdata}\obs-studio\plugin_config\ki-game-switcher');
-  if FileExists(ConfigDir + '\settings.json') then
+  ConfigDir := ExpandConstant('{userappdata}\obs-studio\plugin_config\titlesync');
+  // Alte Einstellungen übernimmt das Plugin beim Start selbst
+  if FileExists(ConfigDir + '\settings.json') or
+     FileExists(ExpandConstant('{userappdata}\obs-studio\plugin_config\ki-game-switcher\settings.json')) then
     Exit;
   ForceDirectories(ConfigDir);
   Log('Plugin auf Ollama eingestellt: ' + ConfigDir);

@@ -1,5 +1,5 @@
 /*
-KI Game Switcher
+TitleSync
 Copyright (C) 2026 Belloccc
 
 This program is free software; you can redistribute it and/or modify
@@ -31,6 +31,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMainWindow>
 #include <QPointer>
 
+#include <filesystem>
+
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
@@ -47,15 +49,15 @@ struct Hotkey {
 	obs_hotkey_id id = OBS_INVALID_HOTKEY_ID;
 };
 Hotkey g_hotkeys[] = {
-	{"kgs_check_now", "KI Game Switcher: Jetzt prüfen",
+	{"kgs_check_now", "TitleSync: Jetzt prüfen",
 	 [] {
 		 g_switcher->checkNow();
 	 }},
-	{"kgs_test", "KI Game Switcher: Test (nichts ändern)",
+	{"kgs_test", "TitleSync: Test (nichts ändern)",
 	 [] {
 		 g_switcher->testNow();
 	 }},
-	{"kgs_toggle", "KI Game Switcher: Pausieren / Fortsetzen",
+	{"kgs_toggle", "TitleSync: Pausieren / Fortsetzen",
 	 [] {
 		 g_switcher->setEnabled(!g_switcher->settings().enabled);
 	 }},
@@ -137,6 +139,35 @@ void onFrontendEvent(enum obs_frontend_event event, void *)
 	}
 }
 
+// Bis Version 1.3 hieß das Plugin „KI Game Switcher“ – Einstellungen, Logins und Sprachmodell übernehmen
+void migrateOldConfig()
+{
+	namespace fs = std::filesystem;
+	std::string current = kgs::configPath("");
+	while (!current.empty() && (current.back() == '/' || current.back() == '\\'))
+		current.pop_back();
+	const fs::path newDir = fs::u8path(current);
+	const fs::path oldDir = newDir.parent_path() / "ki-game-switcher";
+	std::error_code error;
+	if (fs::exists(newDir / "settings.json", error) || !fs::exists(oldDir / "settings.json", error))
+		return;
+
+	fs::create_directories(newDir, error);
+	for (const char *file : {"settings.json", "twitch.json", "youtube.json"}) {
+		if (fs::exists(oldDir / file, error))
+			fs::copy_file(oldDir / file, newDir / file, fs::copy_options::skip_existing, error);
+	}
+	if (fs::exists(oldDir / "models", error))
+		fs::copy(oldDir / "models", newDir / "models",
+			 fs::copy_options::recursive | fs::copy_options::skip_existing, error);
+
+	// Das Dock hat eine neue Kennung – OBS blendet es zunächst aus, also einmal zeigen
+	kgs::Settings settings = kgs::loadSettings();
+	settings.dockIntroduced = false;
+	kgs::saveSettings(settings);
+	obs_log(LOG_INFO, "Einstellungen von „KI Game Switcher“ übernommen");
+}
+
 void openSettings(void *)
 {
 	kgs::SettingsDialog::open(g_switcher, static_cast<QWidget *>(obs_frontend_get_main_window()));
@@ -146,16 +177,17 @@ void openSettings(void *)
 
 MODULE_EXPORT const char *obs_module_name(void)
 {
-	return "KI Game Switcher";
+	return "TitleSync";
 }
 
 MODULE_EXPORT const char *obs_module_description(void)
 {
-	return "Erkennt per KI, welches Spiel im Stream läuft, und stellt Twitch-Titel und -Kategorie automatisch um.";
+	return "TitleSync: Erkennt per KI, was im Stream läuft, und hält Titel und Kategorie auf Twitch und YouTube automatisch aktuell.";
 }
 
 bool obs_module_load(void)
 {
+	migrateOldConfig();
 	kgs::httpGlobalInit();
 	kgs::captureInfoStart();
 	g_switcher = new kgs::Switcher();
@@ -163,11 +195,11 @@ bool obs_module_load(void)
 	auto *mainWindow = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 	if (mainWindow) {
 		auto *dock = new kgs::SwitcherDock(g_switcher, mainWindow);
-		if (obs_frontend_add_dock_by_id("ki-game-switcher", "KI Game Switcher", dock))
+		if (obs_frontend_add_dock_by_id("titlesync", "TitleSync", dock))
 			g_dock = dock;
 		else
 			delete dock;
-		obs_frontend_add_tools_menu_item("KI Game Switcher – Einstellungen", openSettings, nullptr);
+		obs_frontend_add_tools_menu_item("TitleSync – Einstellungen", openSettings, nullptr);
 	}
 	obs_frontend_add_event_callback(onFrontendEvent, nullptr);
 	registerHotkeys();

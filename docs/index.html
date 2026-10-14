@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TitleSync – Titel &amp; Kategorie automatisch per KI</title>
+<meta name="description" content="OBS-Plugin: erkennt per KI, was in deinem Stream läuft, und hält Titel und Kategorie auf Twitch und YouTube automatisch aktuell. Kostenlos, lokal mit Ollama, ohne API-Key.">
+<meta property="og:title" content="TitleSync – Titel & Kategorie automatisch per KI">
+<meta property="og:description" content="Du wechselst das Spiel, dein Stream zieht automatisch mit. Kostenloses OBS-Plugin für Twitch und YouTube.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://bellocccyt.github.io/titlesync/">
+<meta property="og:image" content="https://bellocccyt.github.io/titlesync/logo.png">
+<meta name="theme-color" content="#0e0e14">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0e0e14;
+    --bg-soft: #16161f;
+    --card: #1b1b26;
+    --line: #2a2a3a;
+    --text: #ececf3;
+    --muted: #a1a1b5;
+    --accent: #9146ff;
+    --accent-2: #b98aff;
+    --ok: #3fb950;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent-2); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* Kopf */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(14, 14, 20, .85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  header .wrap { display: flex; align-items: center; gap: 16px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+  .brand img { width: 30px; height: 30px; }
+  nav { margin-left: auto; display: flex; gap: 20px; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 15px; }
+  nav a:hover { color: var(--text); }
+
+  /* Hero */
+  .hero {
+    padding: 80px 0 64px;
+    text-align: center;
+    background:
+      radial-gradient(600px 300px at 50% 0%, rgba(145, 70, 255, .28), transparent 70%),
+      radial-gradient(500px 260px at 85% 40%, rgba(91, 47, 214, .18), transparent 70%);
+  }
+  .hero img.logo { width: 96px; height: 96px; filter: drop-shadow(0 10px 30px rgba(145, 70, 255, .45)); }
+  h1 { font-size: clamp(34px, 6vw, 58px); line-height: 1.1; margin: 22px 0 14px; letter-spacing: -.02em; }
+  h1 span { background: linear-gradient(90deg, var(--accent-2), var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { font-size: clamp(17px, 2.3vw, 20px); color: var(--muted); max-width: 720px; margin: 0 auto 32px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 24px; border-radius: 12px; font-weight: 650; text-decoration: none;
+    border: 1px solid var(--line); color: var(--text); background: var(--card);
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .btn:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), #6b2fe0); border-color: transparent; box-shadow: 0 10px 30px rgba(145, 70, 255, .35); }
+  .meta { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .formerly { margin-top: 6px; font-size: 13px; color: #75758a; }
+
+  /* Ablauf-Demo */
+  .demo { margin: 48px auto 0; max-width: 820px; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 12px; align-items: center; }
+  .demo .step { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; text-align: left; }
+  .demo .step small { color: var(--muted); display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .demo .step strong { display: block; margin-top: 4px; }
+  .demo .arrow { color: var(--accent-2); font-size: 22px; }
+
+  section { padding: 72px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(26px, 4vw, 36px); margin: 0 0 10px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin: 0 0 36px; max-width: 680px; }
+
+  /* Funktionen */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .card .icon { font-size: 26px; }
+  .card h3 { margin: 10px 0 6px; font-size: 18px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  /* Schritte */
+  ol.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; counter-reset: s; }
+  ol.steps li { counter-increment: s; display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+  ol.steps li::before { content: counter(s); flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: rgba(145, 70, 255, .18); color: var(--accent-2); }
+  ol.steps strong { display: block; }
+  ol.steps span { color: var(--muted); font-size: 15px; }
+
+  /* Tabelle */
+  .table { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; min-width: 560px; }
+  th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); font-size: 15px; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; background: var(--bg-soft); }
+  tr:last-child td { border-bottom: 0; }
+  .pill { display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 99px; background: rgba(63, 185, 80, .15); color: #6fdc80; white-space: nowrap; }
+  .pill.key { background: rgba(145, 70, 255, .16); color: var(--accent-2); }
+  .pill.paid { background: rgba(227, 160, 8, .15); color: #f0c24b; }
+
+  /* FAQ */
+  details { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 20px; margin-bottom: 12px; }
+  summary { cursor: pointer; padding: 18px 0; font-weight: 600; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; float: right; color: var(--accent-2); font-size: 20px; line-height: 1; }
+  details[open] summary::after { content: "–"; }
+  details p { margin: 0 0 18px; color: var(--muted); }
+
+  footer { border-top: 1px solid var(--line); padding: 36px 0 48px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; }
+
+  @media (max-width: 720px) {
+    nav { display: none; }
+    .hero { padding-top: 56px; }
+    .demo { grid-template-columns: 1fr; }
+    .demo .arrow { transform: rotate(90deg); justify-self: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="logo.svg" alt=""> TitleSync</a>
+    <nav>
+      <a href="#funktionen">Funktionen</a>
+      <a href="#installation">Installation</a>
+      <a href="#ki">KI-Anbieter</a>
+      <a href="#faq">Fragen</a>
+      <a href="https://github.com/BellocccYT/titlesync">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <img class="logo" src="logo.svg" alt="TitleSync-Logo">
+      <h1>Du wechselst das Spiel.<br><span>Dein Stream zieht mit.</span></h1>
+      <p class="lead">TitleSync ist ein kostenloses OBS-Plugin: Eine KI erkennt, was gerade in deinem Stream läuft, und hält <strong>Titel und Kategorie auf Twitch und YouTube</strong> automatisch aktuell – auf Wunsch komplett lokal auf deinem PC.</p>
+      <div class="actions">
+        <a class="btn primary" id="download" href="https://github.com/BellocccYT/titlesync/releases/latest">⬇️ Für Windows herunterladen</a>
+        <a class="btn" href="https://github.com/BellocccYT/titlesync">⭐ Auf GitHub ansehen</a>
+      </div>
+      <div class="meta" id="version">Kostenlos · Open Source (GPL-2.0) · OBS Studio 31+</div>
+      <div class="formerly">früher „KI Game Switcher“</div>
+
+      <div class="demo" aria-label="So funktioniert es">
+        <div class="step"><small>Streambild</small><strong>🎮 Elden Ring, Bosskampf</strong></div>
+        <div class="arrow">→</div>
+        <div class="step"><small>KI erkennt</small><strong>🧠 Spiel &amp; Situation</strong></div>
+        <div class="arrow">→</div>
+        <div class="step"><small>Twitch &amp; YouTube</small><strong>📺 Kategorie + Titel</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <section id="funktionen">
+    <div class="wrap">
+      <h2>Was TitleSync kann</h2>
+      <p class="sub">Einmal einrichten, dann kümmert sich das Plugin um Titel, Kategorie und Tags – während du spielst.</p>
+      <div class="grid">
+        <div class="card"><div class="icon">🧠</div><h3>KI auf deinem PC</h3><p>Standardmäßig rechnet Ollama lokal auf deiner Grafikkarte: kostenlos, ohne Account, ohne Limits. Kein Bild verlässt deinen PC.</p></div>
+        <div class="card"><div class="icon">🗺️</div><h3>Titel folgt dem Fortschritt</h3><p>Bosskampf, neues Gebiet, Sieg? Der Titel zieht mit – wie oft, bestimmst du (selten, normal, häufig).</p></div>
+        <div class="card"><div class="icon">🎙️</div><h3>Hört auf deine Stimme</h3><p>Sagst du „heute Hardcore-Run“, landet das im Titel. Die Spracherkennung läuft lokal, nichts wird aufgezeichnet.</p></div>
+        <div class="card"><div class="icon">▶️</div><h3>Twitch &amp; YouTube</h3><p>Kategorie, Titel und Tags auf Twitch, Titel auf YouTube – einzeln oder beides zusammen.</p></div>
+        <div class="card"><div class="icon">✍️</div><h3>Titel in deinem Stil</h3><p>Fertige Stile wie Locker, Hype oder Witzig, feste Teile wie <code>[DE]</code> oder <code>| !discord</code>, Deutsch oder Englisch, Emojis an oder aus.</p></div>
+        <div class="card"><div class="icon">🎯</div><h3>100 % sicher mit Zuordnungen</h3><p><code>javaw.exe → Minecraft</code> einmal festlegen – auch mehrere Spiele pro Emulator, je mit eigenem Titel und Tags.</p></div>
+        <div class="card"><div class="icon">🛡️</div><h3>Kein Hin- und Herspringen</h3><p>Gewechselt wird erst nach mehreren sicheren Erkennungen. Ein kurzer Alt-Tab zu Discord löst nichts aus.</p></div>
+        <div class="card"><div class="icon">🔎</div><h3>Doppelt geprüft</h3><p>Vor einem Wechsel vergleicht die KI das Bild mit Screenshots aus dem Steam-Shop.</p></div>
+        <div class="card"><div class="icon">🖥️</div><h3>Eigenes Dock in OBS</h3><p>Status, Vorschaubild, Verlauf, „Jetzt prüfen“, „Test“, Pause und „Falsch erkannt?“ – plus Tastenkürzel.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="installation">
+    <div class="wrap">
+      <h2>In 3 Minuten startklar</h2>
+      <p class="sub">Für Windows gibt es ein Setup, das auf Wunsch gleich die kostenlose KI mitbringt.</p>
+      <ol class="steps">
+        <li><div><strong>Setup herunterladen und starten</strong><span>Haken bei „Ollama installieren“ lassen – dann ist die KI direkt dabei (ca. 4,9 GB, Grafikkarte mit mindestens 4 GB Speicher).</span></div></li>
+        <li><div><strong>OBS starten</strong><span>Das Dock „TitleSync“ erscheint automatisch.</span></div></li>
+        <li><div><strong>Twitch und/oder YouTube verbinden</strong><span>Im Dock auf „Einstellungen …“ – Twitch mit einem Klick, für YouTube führt dich eine Anleitung durch.</span></div></li>
+        <li><div><strong>Spiel starten und „Test“ klicken</strong><span>Du siehst, was die KI erkennt – ohne dass sich auf Twitch oder YouTube etwas ändert.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="ki">
+    <div class="wrap">
+      <h2>Wähle deine KI</h2>
+      <p class="sub">Lokal und ohne Key ist Standard. Wer lieber eine Cloud-KI nutzt, hat die Wahl.</p>
+      <div class="table">
+        <table>
+          <thead><tr><th>Anbieter</th><th>Kosten</th><th>Hinweis</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Ollama</strong> (Standard)</td><td><span class="pill">kostenlos · lokal</span></td><td>Kein Key, keine Limits, Bilder bleiben auf deinem PC</td></tr>
+            <tr><td><strong>LM Studio · Jan · llama.cpp</strong></td><td><span class="pill">kostenlos · lokal</span></td><td>Bildmodell laden, lokalen Server starten, fertig</td></tr>
+            <tr><td><strong>Groq</strong></td><td><span class="pill key">kostenloser Key</span></td><td>Sehr schnell, Tageslimit</td></tr>
+            <tr><td><strong>Mistral</strong></td><td><span class="pill key">kostenloser Key</span></td><td>EU-Anbieter; Training mit Gratis-Anfragen abschaltbar</td></tr>
+            <tr><td><strong>OpenRouter</strong></td><td><span class="pill key">kostenlose Modelle</span></td><td>Ohne Guthaben ca. 50 Anfragen am Tag</td></tr>
+            <tr><td><strong>Google Gemini</strong></td><td><span class="pill paid">in der EU kostenpflichtig</span></td><td>Laut Googles API-Bedingungen</td></tr>
+            <tr><td><strong>Anthropic Claude</strong></td><td><span class="pill paid">kostenpflichtig</span></td><td>Sehr zuverlässige Erkennung</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <h2>Häufige Fragen</h2>
+      <p class="sub">Noch etwas unklar? Schreib ein <a href="https://github.com/BellocccYT/titlesync/issues">Issue auf GitHub</a>.</p>
+      <details><summary>Ist TitleSync wirklich kostenlos?</summary><p>Ja. Das Plugin ist Open Source, und mit Ollama läuft auch die KI kostenlos auf deinem PC. Kosten entstehen nur, wenn du freiwillig einen kostenpflichtigen Cloud-Anbieter wählst.</p></details>
+      <details><summary>Windows warnt beim Setup („Der Computer wurde durch Windows geschützt“)</summary><p>Das Setup ist noch nicht digital signiert. Klick auf „Weitere Informationen → Trotzdem ausführen“. Jeder Download lässt sich mit den SHA-256-Prüfsummen auf der Release-Seite prüfen.</p></details>
+      <details><summary>Funktioniert das auch mit Konsole oder Capture-Card?</summary><p>Ja. Die KI schaut auf das Bild, das OBS zeigt – egal ob PC-Spiel, Capture-Card oder Emulator. Für Emulatoren kannst du sogar mehrere Spiele pro Programm fest zuordnen.</p></details>
+      <details><summary>Was passiert mit meinen Daten?</summary><p>Mit Ollama verlässt kein Bild deinen PC. Die Spracherkennung läuft ebenfalls lokal und zeichnet nichts auf. API-Keys und Logins liegen nur auf deinem Rechner. Bei Cloud-Anbietern gelten deren Datenschutzbedingungen.</p></details>
+      <details><summary>Ändert sich bei YouTube auch die Kategorie?</summary><p>Nein, die YouTube-Schnittstelle bietet keine Spiel-Kategorie wie Twitch an – TitleSync setzt dort den Titel deines Livestreams.</p></details>
+      <details><summary>Ich hatte vorher den „KI Game Switcher“ – was nun?</summary><p>Einfach das neue Setup starten. Es ersetzt die alte Version, und TitleSync übernimmt beim ersten Start deine Einstellungen und Logins.</p></details>
+      <details><summary>Gibt es TitleSync für macOS und Linux?</summary><p>Die Releases enthalten Pakete für macOS und Ubuntu. Sie werden automatisch gebaut, sind aber noch experimentell und ungetestet – Rückmeldungen sind willkommen.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>TitleSync von <a href="https://github.com/BellocccYT">Belloccc</a> · GPL-2.0-or-later</span>
+    <span>Nicht offiziell mit OBS Project, Twitch, YouTube oder den KI-Anbietern verbunden.</span>
+  </div>
+</footer>
+
+<script>
+  // Neueste Version und direkten Setup-Link von GitHub holen; ohne Antwort bleibt der Link zur Release-Seite
+  fetch("https://api.github.com/repos/BellocccYT/titlesync/releases/latest")
+    .then(function (response) { return response.ok ? response.json() : null; })
+    .then(function (release) {
+      if (!release) return;
+      var setup = (release.assets || []).find(function (asset) { return /-setup\.exe$/.test(asset.name); });
+      if (setup) document.getElementById("download").href = setup.browser_download_url;
+      document.getElementById("version").textContent =
+        "Version " + release.tag_name + " · Kostenlos · Open Source (GPL-2.0) · OBS Studio 31+";
+    })
+    .catch(function () {});
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 /*
-KI Game Switcher
+TitleSync
 Copyright (C) 2026 Belloccc
 
 This program is free software; you can redistribute it and/or modify
@@ -294,7 +294,7 @@ std::string askOpenAiCompatible(const AiTarget &target, const std::string &syste
 	if (!target.apiKey.empty())
 		headers.push_back("Authorization: Bearer " + target.apiKey);
 	if (target.provider == Provider::OpenRouter)
-		headers.push_back("X-Title: KI Game Switcher");
+		headers.push_back("X-Title: TitleSync");
 
 	const std::string url = trimSlash(target.baseUrl) + "/chat/completions";
 	HttpResponse response = httpRequest("POST", url, headers, toJson(request), timeoutFor(target.provider));

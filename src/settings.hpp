@@ -1,5 +1,5 @@
 /*
-KI Game Switcher
+TitleSync
 Copyright (C) 2026 Belloccc
 
 This program is free software; you can redistribute it and/or modify
@@ -132,7 +132,7 @@ struct Settings {
 Settings loadSettings();
 void saveSettings(const Settings &settings);
 
-// Pfad im Konfigurationsordner des Plugins (…/obs-studio/plugin_config/ki-game-switcher/)
+// Pfad im Konfigurationsordner des Plugins (…/obs-studio/plugin_config/titlesync/)
 std::string configPath(const char *file);
 
 } // namespace kgs

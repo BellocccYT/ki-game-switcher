@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="TitleSync">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a970ff"/>
+      <stop offset="1" stop-color="#5b2fd6"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#g)"/>
+  <!-- T für Titel -->
+  <path d="M34 38h52M60 38v52" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round"/>
+  <!-- Sync-Abzeichen -->
+  <circle cx="94" cy="94" r="22" fill="#fff"/>
+  <path d="M84.5 91a10 10 0 0 1 17-5" fill="none" stroke="#6b2fe0" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M103.5 80v7.5H96" fill="none" stroke="#6b2fe0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M103.5 97a10 10 0 0 1-17 5" fill="none" stroke="#6b2fe0" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M84.5 108v-7.5H92" fill="none" stroke="#6b2fe0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

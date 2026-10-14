@@ -1,5 +1,5 @@
 /*
-KI Game Switcher
+TitleSync
 Copyright (C) 2026 Belloccc
 
 This program is free software; you can redistribute it and/or modify

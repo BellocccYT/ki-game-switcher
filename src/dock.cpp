@@ -1,5 +1,5 @@
 /*
-KI Game Switcher
+TitleSync
 Copyright (C) 2026 Belloccc
 
 This program is free software; you can redistribute it and/or modify
@@ -284,7 +284,7 @@ void SwitcherDock::onTwitchButton()
 	if (s.loginRunning) {
 		switcher_->cancelTwitchLogin();
 	} else if (s.twitchConnected) {
-		if (QMessageBox::question(this, "KI Game Switcher",
+		if (QMessageBox::question(this, "TitleSync",
 					  "Twitch-Verbindung wirklich trennen? Titel und Kategorie werden dann "
 					  "nicht mehr automatisch umgestellt.") == QMessageBox::Yes)
 			switcher_->disconnectTwitch();
