@@ -112,6 +112,8 @@ long timeoutFor(Provider provider)
 	case Provider::Groq:
 		return 20;
 	case Provider::Mistral:
+	case Provider::Nvidia:
+	case Provider::Cloudflare:
 		return 30;
 	case Provider::Claude:
 		return 45;
@@ -482,6 +484,9 @@ std::vector<std::string> toStrings(const QJsonValue &value, size_t limit)
 
 void requireReady(const AiTarget &target)
 {
+	if (target.baseUrl.find("ACCOUNT_ID") != std::string::npos)
+		throw std::runtime_error("In der Server-URL „ACCOUNT_ID“ durch deine Cloudflare-Account-ID ersetzen "
+					 "(Einstellungen → KI)");
 	if (providerInfo(target.provider).needsKey && target.apiKey.empty())
 		throw std::runtime_error("Kein API-Key für den KI-Anbieter eingetragen (Einstellungen → KI)");
 	if (target.model.empty())
@@ -666,6 +671,13 @@ std::vector<std::string> listModels(const AiTarget &target)
 		} else if (target.provider == Provider::Mistral) {
 			// Nur Modelle, die Bilder verstehen
 			if (!model.value("capabilities").toObject().value("vision").toBool())
+				continue;
+		} else if (target.provider == Provider::Nvidia) {
+			// Der Katalog ist riesig – nur Modelle, die Bilder verstehen
+			static const char *vision[] = {"vision",  "-vl",     "omni",    "vila",   "multimodal",
+						       "gemma-3", "gemma-4", "llama-4", "kosmos", "neva"};
+			if (std::none_of(std::begin(vision), std::end(vision),
+					 [&id](const char *word) { return id.contains(word, Qt::CaseInsensitive); }))
 				continue;
 		} else if (target.provider == Provider::Groq) {
 			// Sprach-, Audio- und Schutzmodelle können keine Bilder beschreiben

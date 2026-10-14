@@ -62,20 +62,32 @@ const ProviderInfo kProviders[kProviderCount] = {
 	{"llamacpp", "llama.cpp-Server (lokal, ohne Key)", "http://localhost:8080/v1", "llama.cpp", "", false,
 	 "Für Bastler: <code>llama-server -m modell.gguf --mmproj mmproj.gguf --port 8080</code> mit einem Bildmodell "
 	 "starten. Der Modellname spielt keine Rolle."},
-	{"groq", "Groq (kostenloser Key)", "https://api.groq.com/openai/v1",
-	 "meta-llama/llama-4-scout-17b-16e-instruct", "", true,
+	{"groq", "Groq (kostenloser Key)", "https://api.groq.com/openai/v1", "", "", true,
 	 "Sehr schnell, kostenloser Key mit Tageslimit: <a href=\"https://console.groq.com/keys\">console.groq.com/keys</a>. "
-	 "Nach dem Eintragen „Modelle laden“ und ein Modell mit Bildverständnis wählen."},
-	{"mistral", "Mistral (kostenloser Key, EU)", "https://api.mistral.ai/v1", "mistral-small-latest", "", true,
-	 "Europäischer Anbieter, kostenloser Key mit Limit: <a href=\"https://console.mistral.ai/api-keys\">"
-	 "console.mistral.ai</a>. Achtung: Im Gratis-Modus darf Mistral Anfragen zum Training nutzen – in den "
-	 "Datenschutz-Einstellungen deines Mistral-Kontos kannst du widersprechen."},
+	 "Groq hat seine Llama-Bildmodelle im Juli 2026 eingestellt – „Modelle laden“ und ein Qwen-Modell mit "
+	 "Bildverständnis wählen (bei Groq als Vorschau gekennzeichnet)."},
+	{"mistral", "Mistral (EU)", "https://api.mistral.ai/v1", "mistral-small-latest", "", true,
+	 "Europäischer Anbieter. Key: <a href=\"https://console.mistral.ai/api-keys\">console.mistral.ai</a>. Die "
+	 "Gratis-Stufe ist stark eingeschränkt, sonst kostenpflichtig. Im Gratis-Modus darf Mistral Anfragen zum Training "
+	 "nutzen – in den Datenschutz-Einstellungen deines Kontos kannst du widersprechen."},
+	{"nvidia", "NVIDIA NIM (kostenloser Key)", "https://integrate.api.nvidia.com/v1",
+	 "meta/llama-3.2-11b-vision-instruct", "meta/llama-3.2-90b-vision-instruct", true,
+	 "Kostenloser Key nach Registrierung: <a href=\"https://build.nvidia.com\">build.nvidia.com</a> → Modell öffnen → "
+	 "„Get API Key“ (beginnt mit <code>nvapi-</code>). Etwa 40 Anfragen pro Minute. „Modelle laden“ zeigt die Modelle "
+	 "mit Bildverständnis."},
+	{"cloudflare", "Cloudflare Workers AI (kostenloses Tageskontingent)",
+	 "https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1", "@cf/meta/llama-4-scout-17b-16e-instruct",
+	 "@cf/google/gemma-3-12b-it", true,
+	 "Kostenloses Tageskontingent mit Cloudflare-Konto: <a href=\"https://dash.cloudflare.com/profile/api-tokens\">"
+	 "API-Token</a> mit der Berechtigung „Workers AI“ erstellen und als Key eintragen. In der Server-URL "
+	 "<code>ACCOUNT_ID</code> durch deine Account-ID ersetzen (steht im Cloudflare-Dashboard). Weiteres Bildmodell: "
+	 "<code>@cf/mistralai/mistral-small-3.1-24b-instruct</code>."},
 };
 
-const std::vector<Provider> kDisplayOrder = {Provider::Ollama,   Provider::LmStudio,   Provider::Jan,
-					     Provider::LlamaCpp, Provider::Gemini,     Provider::Groq,
-					     Provider::Mistral,  Provider::OpenRouter, Provider::Claude,
-					     Provider::Custom};
+const std::vector<Provider> kDisplayOrder = {Provider::Ollama,     Provider::LmStudio, Provider::Jan,
+					     Provider::LlamaCpp,   Provider::Nvidia,   Provider::Cloudflare,
+					     Provider::OpenRouter, Provider::Groq,     Provider::Gemini,
+					     Provider::Mistral,    Provider::Claude,   Provider::Custom};
 
 const char *titleModeId(TitleMode mode)
 {

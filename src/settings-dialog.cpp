@@ -728,7 +728,9 @@ void SettingsDialog::showProvider(int index)
 	model_->setEditText(qstr(values.model.empty() ? info.defaultModel : values.model));
 	fallbackModel_->clear();
 	fallbackModel_->setEditText(qstr(values.fallbackModel));
-	baseUrl_->setText(qstr(values.baseUrl));
+	// Cloudflare: Vorlage eintragen, damit nur noch die Account-ID ersetzt werden muss
+	baseUrl_->setText(
+		qstr(values.baseUrl.empty() && provider == Provider::Cloudflare ? info.baseUrl : values.baseUrl));
 	baseUrl_->setPlaceholderText(*info.baseUrl ? info.baseUrl : "z. B. http://localhost:1234/v1");
 	modelStatus_->clear();
 }

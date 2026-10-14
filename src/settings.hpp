@@ -25,8 +25,21 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 namespace kgs {
 
 // Werte bleiben stabil (Index in der Konfiguration); neue Anbieter kommen hinten dazu
-enum class Provider { Gemini = 0, OpenRouter, Ollama, Custom, Claude, LmStudio, Jan, LlamaCpp, Groq, Mistral };
-constexpr int kProviderCount = 10;
+enum class Provider {
+	Gemini = 0,
+	OpenRouter,
+	Ollama,
+	Custom,
+	Claude,
+	LmStudio,
+	Jan,
+	LlamaCpp,
+	Groq,
+	Mistral,
+	Nvidia,
+	Cloudflare
+};
+constexpr int kProviderCount = 12;
 
 struct ProviderInfo {
 	const char *id; // Schlüssel in der Konfigurationsdatei

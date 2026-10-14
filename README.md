@@ -97,8 +97,10 @@ Einstellen kannst du das unter **Einstellungen … → KI**.
 | **OpenRouter** | kostenlose Modelle verfügbar | Key von [openrouter.ai/keys](https://openrouter.ai/keys). Ohne Guthaben nur ca. 50 Anfragen am Tag, Intervall daher mindestens 5 Minuten. |
 | **Anthropic Claude** | kostenpflichtig | Key von [platform.claude.com](https://platform.claude.com) |
 | **LM Studio** / **Jan** / **llama.cpp** | kostenlos, lokal, ohne Key | Programm installieren, ein Bildmodell laden (z. B. Qwen3-VL) und den lokalen Server starten. Dann „Modelle laden“. |
-| **Groq** | kostenloser Key mit Tageslimit, sehr schnell | Key von [console.groq.com/keys](https://console.groq.com/keys) |
-| **Mistral** | kostenloser Key mit Limit, EU-Anbieter | Key von [console.mistral.ai](https://console.mistral.ai/api-keys). Im Gratis-Modus darf Mistral Anfragen zum Training nutzen, das lässt sich im Konto abschalten. |
+| **NVIDIA NIM** | kostenloser Key, ca. 40 Anfragen/Minute | Key von [build.nvidia.com](https://build.nvidia.com) (Registrierung). Bildmodelle wie Llama 3.2 Vision. |
+| **Cloudflare Workers AI** | kostenloses Tageskontingent | API-Token mit „Workers AI“-Recht von [dash.cloudflare.com](https://dash.cloudflare.com/profile/api-tokens), in der Server-URL `ACCOUNT_ID` durch deine Account-ID ersetzen |
+| **Groq** | kostenloser Key mit Tageslimit, sehr schnell | Key von [console.groq.com/keys](https://console.groq.com/keys). Die Llama-Bildmodelle wurden im Juli 2026 eingestellt, nur noch Qwen-Modelle als Vorschau. |
+| **Mistral** | Gratis-Stufe stark eingeschränkt, sonst kostenpflichtig | EU-Anbieter. Key von [console.mistral.ai](https://console.mistral.ai/api-keys) |
 | **Eigener Server** | – | Jede OpenAI-kompatible Schnittstelle |
 
 Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei gleich ein Modell aus. Ist das Hauptmodell überlastet oder hat es sein Limit erreicht, springt automatisch das **Ersatzmodell** ein.
