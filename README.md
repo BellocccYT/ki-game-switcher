@@ -21,6 +21,37 @@ Das OBS-Plugin erkennt per KI, was gerade in deinem Stream läuft, und hält **T
 
 ---
 
+<table align="center">
+<tr>
+<td align="center" width="50%">
+<img src="docs/demo.gif" width="300" alt="TitleSync erkennt das Spiel und stellt Titel, Kategorie und Tags automatisch um">
+</td>
+<td width="50%">
+
+### 😩 Ohne TitleSync
+
+Spiel wechseln → Alt-Tab → Dashboard öffnen → Titel tippen → Kategorie suchen → Tags anpassen …
+
+*… oder vergessen, und der Chat fragt, warum da seit zwei Stunden „Minecraft“ steht.* 💀
+
+### 😎 Mit TitleSync
+
+Spiel wechseln. **Fertig.**
+
+Titel, Kategorie und Tags ziehen von selbst nach, auf Twitch und YouTube, mit **0 Klicks**.
+
+</td>
+</tr>
+</table>
+
+<div align="center">
+
+| 🆓 **Kostenlos** | 🔒 **Lokal** | ⚡ **Automatisch** | 🎙️ **Hört zu** |
+|:---:|:---:|:---:|:---:|
+| Open Source, ohne Abo | KI auf deinem PC, ohne API-Key | Erkennt Spiel und Fortschritt | Schlagwörter aus deiner Stimme |
+
+</div>
+
 ## ✨ Was es kann
 
 | | |
@@ -227,6 +258,10 @@ Windows binaries are **not signed yet**. Once the project is more widely known, 
 Privacy policy: This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it: the AI provider chosen by the user (Ollama runs locally) and Twitch, to update the channel's title and category.
 
 </details>
+
+## ⭐ Gefällt dir TitleSync?
+
+Lass gern einen **Stern** oben rechts da. Das hilft anderen Streamern, das Plugin zu finden. Ideen, Fehler oder Fragen? Ab damit in die [Issues](https://github.com/BellocccYT/titlesync/issues). Jede Rückmeldung macht TitleSync besser. 💜
 
 ## 📄 Lizenz
 
