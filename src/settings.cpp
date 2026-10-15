@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "settings.hpp"
+#include "i18n.hpp"
 
 #include <obs-module.h>
 #include <util/platform.h>
@@ -35,54 +36,24 @@ namespace {
 constexpr const char *kBuiltinTwitchClientId = "qecldbsld4yvnhb4r976a7jrctjt6z";
 
 const ProviderInfo kProviders[kProviderCount] = {
-	{"gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.8-flash",
-	 "gemini-3.5-flash-lite", true,
-	 "Key erstellen: <a href=\"https://aistudio.google.com/apikey\">aistudio.google.com/apikey</a>. In der EU, "
-	 "der Schweiz und Großbritannien erlaubt Google für Programme wie dieses nur die kostenpflichtige API "
-	 "(Google-Cloud-Projekt mit Abrechnung)."},
-	{"openrouter", "OpenRouter (kostenlose Modelle)", "https://openrouter.ai/api/v1", "openrouter/free", "", true,
-	 "Key: <a href=\"https://openrouter.ai/keys\">openrouter.ai/keys</a>. Ohne Guthaben nur rund 50 Anfragen "
-	 "pro Tag – stell das Prüfintervall dann auf mindestens 5 Minuten."},
-	{"ollama", "Ollama (lokal, ohne Key)", "http://localhost:11434/v1", "qwen3-vl:4b-instruct", "", false,
-	 "Läuft komplett auf deinem PC: <a href=\"https://ollama.com\">ollama.com</a> installieren und ein Bildmodell "
-	 "laden: <code>ollama pull qwen3-vl:4b-instruct</code> (3,3 GB). Braucht ca. 4 GB Grafikspeicher und rechnet pro "
-	 "Prüfung einige Sekunden auf der Grafikkarte."},
-	{"custom", "Eigener Server (OpenAI-kompatibel)", "", "", "", false,
-	 "Jeder Dienst mit OpenAI-kompatibler Schnittstelle, z. B. LM Studio. Server-URL inklusive <code>/v1</code> "
-	 "eintragen."},
-	{"claude", "Anthropic Claude (kostenpflichtig)", "https://api.anthropic.com", "claude-opus-5-5", "", true,
-	 "Sehr zuverlässige Erkennung, kostet aber pro Anfrage. Key: "
-	 "<a href=\"https://platform.claude.com\">platform.claude.com</a>"},
-	{"lmstudio", "LM Studio (lokal, ohne Key)", "http://localhost:1234/v1", "", "", false,
-	 "Läuft auf deinem PC: <a href=\"https://lmstudio.ai\">lmstudio.ai</a> installieren, ein Bildmodell laden "
-	 "(z. B. Qwen3-VL 4B) und unter <b>Developer</b> den lokalen Server starten. Danach hier „Modelle laden“."},
-	{"jan", "Jan (lokal, ohne Key)", "http://localhost:1337/v1", "", "", false,
-	 "Läuft auf deinem PC: <a href=\"https://jan.ai\">jan.ai</a> installieren, ein Bildmodell laden und unter "
-	 "<b>Einstellungen → Local API Server</b> den Server starten. Danach hier „Modelle laden“."},
-	{"llamacpp", "llama.cpp-Server (lokal, ohne Key)", "http://localhost:8080/v1", "llama.cpp", "", false,
-	 "Für Bastler: <code>llama-server -m modell.gguf --mmproj mmproj.gguf --port 8080</code> mit einem Bildmodell "
-	 "starten. Der Modellname spielt keine Rolle."},
-	{"groq", "Groq (kostenloser Key)", "https://api.groq.com/openai/v1", "", "", true,
-	 "Sehr schnell, kostenloser Key mit Tageslimit: <a href=\"https://console.groq.com/keys\">console.groq.com/keys</a>. "
-	 "Groq hat seine Llama-Bildmodelle im Juli 2026 eingestellt – „Modelle laden“ und ein Qwen-Modell mit "
-	 "Bildverständnis wählen (bei Groq als Vorschau gekennzeichnet)."},
-	{"mistral", "Mistral (EU)", "https://api.mistral.ai/v1", "mistral-small-latest", "", true,
-	 "Europäischer Anbieter. Key: <a href=\"https://console.mistral.ai/api-keys\">console.mistral.ai</a>. Die "
-	 "Gratis-Stufe ist stark eingeschränkt, sonst kostenpflichtig. Im Gratis-Modus darf Mistral Anfragen zum Training "
-	 "nutzen – in den Datenschutz-Einstellungen deines Kontos kannst du widersprechen."},
-	{"nvidia", "NVIDIA NIM (kostenloser Key)", "https://integrate.api.nvidia.com/v1",
-	 "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "", true,
-	 "Kostenloser Key nach Registrierung: <a href=\"https://build.nvidia.com\">build.nvidia.com</a> → Modell öffnen → "
-	 "„Get API Key“ (beginnt mit <code>nvapi-</code>). Empfohlen: <code>nvidia/nemotron-3-nano-omni-30b-a3b-reasoning</code> "
-	 "– erkennt zuverlässig und antwortet in wenigen Sekunden.Viele andere Modelle in der Liste sind für Gratis-Konten "
-	 "nicht freigeschaltet oder oft überlastet."},
-	{"cloudflare", "Cloudflare Workers AI (kostenloses Tageskontingent)",
-	 "https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1", "@cf/meta/llama-4-scout-17b-16e-instruct",
-	 "@cf/google/gemma-3-12b-it", true,
-	 "Kostenloses Tageskontingent mit Cloudflare-Konto: <a href=\"https://dash.cloudflare.com/profile/api-tokens\">"
-	 "API-Token</a> mit der Berechtigung „Workers AI“ erstellen und als Key eintragen. In der Server-URL "
-	 "<code>ACCOUNT_ID</code> durch deine Account-ID ersetzen (steht im Cloudflare-Dashboard). Weiteres Bildmodell: "
-	 "<code>@cf/mistralai/mistral-small-3.1-24b-instruct</code>."},
+	{"gemini", "Provider.Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.8-flash",
+	 "gemini-3.5-flash-lite", true, "Provider.Gemini.Help"},
+	{"openrouter", "Provider.OpenRouter", "https://openrouter.ai/api/v1", "openrouter/free", "", true,
+	 "Provider.OpenRouter.Help"},
+	{"ollama", "Provider.Ollama", "http://localhost:11434/v1", "qwen3-vl:4b-instruct", "", false,
+	 "Provider.Ollama.Help"},
+	{"custom", "Provider.Custom", "", "", "", false, "Provider.Custom.Help"},
+	{"claude", "Provider.Claude", "https://api.anthropic.com", "claude-opus-5-5", "", true, "Provider.Claude.Help"},
+	{"lmstudio", "Provider.LmStudio", "http://localhost:1234/v1", "", "", false, "Provider.LmStudio.Help"},
+	{"jan", "Provider.Jan", "http://localhost:1337/v1", "", "", false, "Provider.Jan.Help"},
+	{"llamacpp", "Provider.LlamaCpp", "http://localhost:8080/v1", "llama.cpp", "", false, "Provider.LlamaCpp.Help"},
+	{"groq", "Provider.Groq", "https://api.groq.com/openai/v1", "", "", true, "Provider.Groq.Help"},
+	{"mistral", "Provider.Mistral", "https://api.mistral.ai/v1", "mistral-small-latest", "", true,
+	 "Provider.Mistral.Help"},
+	{"nvidia", "Provider.Nvidia", "https://integrate.api.nvidia.com/v1",
+	 "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "", true, "Provider.Nvidia.Help"},
+	{"cloudflare", "Provider.Cloudflare", "https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1",
+	 "@cf/meta/llama-4-scout-17b-16e-instruct", "@cf/google/gemma-3-12b-it", true, "Provider.Cloudflare.Help"},
 };
 
 const std::vector<Provider> kDisplayOrder = {Provider::Ollama,     Provider::LmStudio, Provider::Jan,
@@ -112,20 +83,20 @@ TitleMode titleModeFromId(const std::string &id)
 }
 
 const std::vector<TitlePreset> kTitlePresets = {
-	{"locker", "Locker",
+	{"locker", "Preset.Locker",
 	 "Locker und einladend, wie ein gut gelaunter Streamer, der Lust auf den Stream macht. Ein passendes Emoji."},
-	{"hype", "Hype",
+	{"hype", "Preset.Hype",
 	 "Energiegeladen und spannend, ein Wort darf in GROSSBUCHSTABEN stehen, ein bis zwei passende Emojis."},
-	{"witzig", "Witzig",
+	{"witzig", "Preset.Witzig",
 	 "Humorvoll mit einem Wortspiel oder einem augenzwinkernden Kommentar zum Spiel oder zur Situation."},
-	{"sachlich", "Sachlich",
+	{"sachlich", "Preset.Sachlich",
 	 "Klar und informativ: Spiel und aktuelle Situation, ohne Emojis und ohne Übertreibung."},
-	{"eigener", "Nur eigene Ergänzungen", ""},
+	{"eigener", "Preset.Eigener", ""},
 };
 
 const std::vector<VoiceModelInfo> kVoiceModels = {
-	{"base", "Schnell (Basis, 82 MB)", "ggml-base-q8_0.bin", 82},
-	{"small", "Genauer (Klein, 190 MB, mehr CPU-Last)", "ggml-small-q5_1.bin", 190},
+	{"base", "VoiceModel.Base", "ggml-base-q8_0.bin", 82},
+	{"small", "VoiceModel.Small", "ggml-small-q5_1.bin", 190},
 };
 
 } // namespace
@@ -214,6 +185,9 @@ std::string configPath(const char *file)
 Settings loadSettings()
 {
 	Settings s;
+	// Ohne gespeicherte Wahl schreibt die KI Titel in der Sprache von OBS
+	const char *obsLocale = obs_get_locale();
+	s.titleLanguage = obsLocale && std::string(obsLocale).rfind("de", 0) == 0 ? "de" : "en";
 	for (int i = 0; i < kProviderCount; i++)
 		s.providers[i].fallbackModel = kProviders[i].defaultFallbackModel;
 	obs_data_t *data = obs_data_create_from_json_file_safe(configPath("settings.json").c_str(), "bak");
@@ -291,6 +265,7 @@ Settings loadSettings()
 	getString("title_prefix", s.titlePrefix);
 	getString("title_suffix", s.titleSuffix);
 	getString("title_language", s.titleLanguage);
+	getString("ui_language", s.uiLanguage);
 	getBool("title_emojis", s.titleEmojis);
 	getString("twitch_tags", s.twitchTags);
 	getBool("progress_titles", s.progressTitles);
@@ -358,6 +333,7 @@ void saveSettings(const Settings &s)
 	obs_data_set_string(data, "title_prefix", s.titlePrefix.c_str());
 	obs_data_set_string(data, "title_suffix", s.titleSuffix.c_str());
 	obs_data_set_string(data, "title_language", s.titleLanguage.c_str());
+	obs_data_set_string(data, "ui_language", s.uiLanguage.c_str());
 	obs_data_set_bool(data, "title_emojis", s.titleEmojis);
 	obs_data_set_string(data, "twitch_tags", s.twitchTags.c_str());
 	obs_data_set_bool(data, "progress_titles", s.progressTitles);

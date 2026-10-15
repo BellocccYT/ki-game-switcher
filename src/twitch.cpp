@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "twitch.hpp"
+#include "i18n.hpp"
 
 #include "http.hpp"
 #include "settings.hpp"
@@ -70,7 +71,7 @@ std::string lower(const std::string &value)
 std::string describe(const HttpResponse &response)
 {
 	if (!response.error.empty())
-		return "keine Verbindung zu Twitch (" + response.error + ")";
+		return Trf("Twitch.NoConnection", {response.error});
 	std::string message = str(parseObject(response.body), "message");
 	return "HTTP " + std::to_string(response.status) + (message.empty() ? "" : " " + message);
 }
@@ -145,13 +146,13 @@ void Twitch::disconnect()
 DeviceFlow Twitch::startDeviceFlow(const std::string &clientId)
 {
 	if (clientId.empty())
-		throw TwitchError("Keine Twitch-Client-ID konfiguriert (Einstellungen → Twitch)");
+		throw TwitchError(Tr("Twitch.NoTwitchClientIDConfigured"));
 
 	HttpResponse response = httpRequest("POST", idUrl() + "/device",
 					    {"Content-Type: application/x-www-form-urlencoded"},
 					    formEncode({{"client_id", clientId}, {"scopes", kScopes}}));
 	if (response.status != 200)
-		throw TwitchError("Twitch lehnt die Anmeldung ab: " + describe(response));
+		throw TwitchError(Tr("Twitch.TwitchRejectedSignIn") + describe(response));
 
 	QJsonObject data = parseObject(response.body);
 	DeviceFlow flow;
@@ -191,7 +192,7 @@ bool Twitch::waitForDeviceLogin(const std::string &clientId, const DeviceFlow &f
 			refreshToken_ = str(data, "refresh_token");
 			categoryCache_.clear();
 			if (!validate())
-				throw TwitchError("Neues Twitch-Token ist ungültig");
+				throw TwitchError(Tr("Twitch.NewTwitchTokenIsInvalid"));
 			save();
 			return true;
 		}
@@ -203,7 +204,7 @@ bool Twitch::waitForDeviceLogin(const std::string &clientId, const DeviceFlow &f
 			interval += 5;
 			continue;
 		}
-		throw TwitchError("Twitch-Anmeldung fehlgeschlagen: " + describe(response));
+		throw TwitchError(Tr("Twitch.TwitchSignInFailed") + describe(response));
 	}
 	return false;
 }
@@ -214,7 +215,7 @@ bool Twitch::validate()
 	if (response.status == 401)
 		return false;
 	if (response.status != 200)
-		throw TwitchError("Twitch-Token konnte nicht geprüft werden: " + describe(response));
+		throw TwitchError(Tr("Twitch.CouldntCheckTwitchToken") + describe(response));
 
 	QJsonObject data = parseObject(response.body);
 	userId_ = str(data, "user_id");
@@ -233,17 +234,17 @@ void Twitch::refresh()
 			{{"grant_type", "refresh_token"}, {"refresh_token", refreshToken_}, {"client_id", clientId_}}));
 	if (response.status == 400 || response.status == 401) {
 		disconnect();
-		throw TwitchError("Twitch-Anmeldung abgelaufen – bitte neu verbinden");
+		throw TwitchError(Tr("Twitch.TwitchSignInExpiredPlease"));
 	}
 	if (response.status != 200)
-		throw TwitchError("Twitch-Token konnte nicht erneuert werden: " + describe(response));
+		throw TwitchError(Tr("Twitch.CouldntRenewTwitchToken") + describe(response));
 
 	QJsonObject data = parseObject(response.body);
 	accessToken_ = str(data, "access_token");
 	if (data.contains("refresh_token"))
 		refreshToken_ = str(data, "refresh_token");
 	if (!validate())
-		throw TwitchError("Erneuertes Twitch-Token ist ungültig");
+		throw TwitchError(Tr("Twitch.RenewedTwitchTokenIsInvalid"));
 	save();
 }
 
@@ -252,7 +253,7 @@ QJsonObject Twitch::helix(const char *method, const std::string &path, const std
 {
 	std::lock_guard lock(mutex_);
 	if (accessToken_.empty() || userId_.empty())
-		throw TwitchError("Nicht mit Twitch verbunden");
+		throw TwitchError(Tr("Twitch.NotConnectedToTwitch"));
 
 	// Twitch verlangt, dass Tokens regelmäßig (mindestens stündlich) validiert werden
 	if (!validated_ || std::chrono::steady_clock::now() - validatedAt_ > std::chrono::minutes(50)) {

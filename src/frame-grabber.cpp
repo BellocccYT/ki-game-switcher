@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "frame-grabber.hpp"
+#include "i18n.hpp"
 
 #include <obs-frontend-api.h>
 #include <obs-module.h>
@@ -48,13 +49,13 @@ QImage grabFrame(const std::string &sourceName, int maxWidth)
 	if (!sourceName.empty()) {
 		source = obs_get_source_by_name(sourceName.c_str());
 		if (!source)
-			throw std::runtime_error("Quelle „" + sourceName + "“ nicht gefunden");
+			throw std::runtime_error(Trf("Capture.SourceNotFound", {sourceName}));
 	} else {
 		source = obs_get_output_source(0);
 		if (!source)
 			source = obs_frontend_get_current_scene();
 		if (!source)
-			throw std::runtime_error("Keine Programmausgabe gefunden");
+			throw std::runtime_error(Tr("Capture.NoProgramOutputFound"));
 	}
 	SourceRef ref{source};
 

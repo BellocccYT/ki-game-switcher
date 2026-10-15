@@ -19,6 +19,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "capture-info.hpp"
 #include "dock.hpp"
 #include "http.hpp"
+#include "i18n.hpp"
 #include "settings-dialog.hpp"
 #include "switcher.hpp"
 #include "voice.hpp"
@@ -49,15 +50,15 @@ struct Hotkey {
 	obs_hotkey_id id = OBS_INVALID_HOTKEY_ID;
 };
 Hotkey g_hotkeys[] = {
-	{"kgs_check_now", "TitleSync: Jetzt prüfen",
+	{"kgs_check_now", "Main.TitleSyncCheckNow",
 	 [] {
 		 g_switcher->checkNow();
 	 }},
-	{"kgs_test", "TitleSync: Test (nichts ändern)",
+	{"kgs_test", "Main.TitleSyncTestChangeNothing",
 	 [] {
 		 g_switcher->testNow();
 	 }},
-	{"kgs_toggle", "TitleSync: Pausieren / Fortsetzen",
+	{"kgs_toggle", "Main.TitleSyncPauseResume",
 	 [] {
 		 g_switcher->setEnabled(!g_switcher->settings().enabled);
 	 }},
@@ -72,7 +73,7 @@ void onHotkey(void *data, obs_hotkey_id, obs_hotkey_t *, bool pressed)
 void registerHotkeys()
 {
 	for (Hotkey &hotkey : g_hotkeys)
-		hotkey.id = obs_hotkey_register_frontend(hotkey.name, hotkey.description, onHotkey, &hotkey);
+		hotkey.id = obs_hotkey_register_frontend(hotkey.name, kgs::Tr(hotkey.description), onHotkey, &hotkey);
 }
 
 void unregisterHotkeys()
@@ -182,12 +183,13 @@ MODULE_EXPORT const char *obs_module_name(void)
 
 MODULE_EXPORT const char *obs_module_description(void)
 {
-	return "TitleSync: Erkennt per KI, was im Stream läuft, und hält Titel und Kategorie auf Twitch und YouTube automatisch aktuell.";
+	return obs_module_text("Plugin.Description");
 }
 
 bool obs_module_load(void)
 {
 	migrateOldConfig();
+	kgs::i18nInit(kgs::loadSettings().uiLanguage);
 	kgs::httpGlobalInit();
 	kgs::captureInfoStart();
 	g_switcher = new kgs::Switcher();
@@ -199,7 +201,7 @@ bool obs_module_load(void)
 			g_dock = dock;
 		else
 			delete dock;
-		obs_frontend_add_tools_menu_item("TitleSync – Einstellungen", openSettings, nullptr);
+		obs_frontend_add_tools_menu_item(kgs::Tr("Main.TitleSyncSettings"), openSettings, nullptr);
 	}
 	obs_frontend_add_event_callback(onFrontendEvent, nullptr);
 	registerHotkeys();
@@ -222,5 +224,6 @@ void obs_module_unload(void)
 	kgs::voice::shutdown();
 	kgs::captureInfoStop();
 	kgs::httpGlobalCleanup();
+	kgs::i18nFree();
 	obs_log(LOG_INFO, "entladen");
 }

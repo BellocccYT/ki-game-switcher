@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "ai-client.hpp"
+#include "i18n.hpp"
 
 #include "http.hpp"
 
@@ -216,51 +217,43 @@ std::string providerErrorDetail(const std::string &body)
 [[noreturn]] void throwHttpError(const AiTarget &target, const HttpResponse &response)
 {
 	if (response.timedOut)
-		throw AiError("„" + target.model + "“ antwortet nicht (Zeitüberschreitung nach " +
-				      std::to_string(timeoutFor(target.provider)) + " s)",
+		throw AiError(Trf("Ai.ModelTimeout", {target.model, std::to_string(timeoutFor(target.provider))}),
 			      true);
 	if (!response.error.empty()) {
 		if (isLocalProvider(target.provider)) {
-			const QString name = QString(providerInfo(target.provider).label).section(" (", 0, 0);
-			throw AiError(name.toStdString() +
-					      " nicht erreichbar – läuft das Programm mit gestartetem Server? (" +
-					      response.error + ")",
-				      false);
+			const QString name = QString(Tr(providerInfo(target.provider).label)).section(" (", 0, 0);
+			throw AiError(Trf("Ai.LocalNotReachable", {name.toStdString(), response.error}), false);
 		}
-		throw AiError("Keine Verbindung zum KI-Anbieter: " + response.error, true);
+		throw AiError(Tr("Ai.NoConnectionToAIProvider") + response.error, true);
 	}
 
 	std::string message;
 	bool retryable = false;
 	switch (response.status) {
 	case 400:
-		message = "Anfrage vom KI-Anbieter abgelehnt (HTTP 400)";
+		message = Tr("Ai.RequestRejectedByAIProvider");
 		break;
 	case 401:
 	case 403:
-		message = "API-Key ungültig oder ohne Berechtigung";
+		message = Tr("Ai.APIKeyInvalidOrWithout");
 		break;
 	case 404:
 		// NVIDIA listet auch Modelle, die für Gratis-Konten nicht freigeschaltet sind
-		message =
-			target.provider == Provider::Nvidia
-				? "Modell „" + target.model + "“ ist für dein NVIDIA-Konto nicht freigeschaltet – " +
-					  "nimm z. B. meta/llama-3.2-11b-vision-instruct"
-				: "Modell „" + target.model + "“ nicht gefunden – in den Einstellungen „Modelle laden“";
+		message = target.provider == Provider::Nvidia ? Trf("Ai.NvidiaModelNotEnabled", {target.model})
+							      : Trf("Ai.ModelNotFound", {target.model});
 		break;
 	case 429:
 		// Bei Gemini hat jedes Modell ein eigenes Gratis-Kontingent – das Ersatzmodell kann helfen
-		message = "Limit für „" + target.model + "“ erreicht (zu viele Anfragen)";
+		message = Trf("Ai.LimitReached", {target.model});
 		retryable = true;
 		break;
 	case 503:
-		message = "„" + target.model + "“ ist gerade überlastet (HTTP 503)";
+		message = Trf("Ai.ModelOverloaded", {target.model});
 		retryable = true;
 		break;
 	default:
 		retryable = response.status >= 500;
-		message = (retryable ? "Server des KI-Anbieters hat ein Problem (HTTP "
-				     : "Fehler vom KI-Anbieter (HTTP ") +
+		message = (retryable ? Tr("Ai.AIProvidersServerHasProblem") : Tr("Ai.ErrorFromAIProviderHTTP")) +
 			  std::to_string(response.status) + ")";
 	}
 	const std::string detail = providerErrorDetail(response.body);
@@ -279,14 +272,14 @@ QJsonObject extractJsonObject(const std::string &text)
 		if (doc.isObject())
 			return doc.object();
 	}
-	throw std::runtime_error("Antwort der KI nicht verstanden: " +
+	throw std::runtime_error(Tr("Ai.DidntUnderstandAIsAnswer") +
 				 QString::fromStdString(text).left(120).simplified().toStdString());
 }
 
 std::string askOpenAiCompatible(const AiTarget &target, const std::string &system, const QJsonArray &userContent)
 {
 	if (target.baseUrl.empty())
-		throw std::runtime_error("Keine Server-URL für den KI-Anbieter eingetragen");
+		throw std::runtime_error(Tr("Ai.NoServerURLEnteredFor"));
 
 	QJsonObject request{
 		{"model", QString::fromStdString(target.model)},
@@ -327,7 +320,7 @@ std::string askOpenAiCompatible(const AiTarget &target, const std::string &syste
 
 	QJsonArray choices = parseJson(response.body).object().value("choices").toArray();
 	if (choices.isEmpty())
-		throw std::runtime_error("Leere Antwort der KI");
+		throw std::runtime_error(Tr("Ai.EmptyAnswerFromAI"));
 	QJsonObject choice = choices.first().toObject();
 	QJsonValue content = choice.value("message").toObject().value("content");
 
@@ -340,8 +333,8 @@ std::string askOpenAiCompatible(const AiTarget &target, const std::string &syste
 	}
 	if (text.empty()) {
 		if (choice.value("finish_reason").toString() == "length")
-			throw std::runtime_error("Antwort der KI wurde abgeschnitten");
-		throw std::runtime_error("Leere Antwort der KI");
+			throw std::runtime_error(Tr("Ai.AIsAnswerWasCutOff"));
+		throw std::runtime_error(Tr("Ai.EmptyAnswerFromAI"));
 	}
 	return text;
 }
@@ -373,17 +366,17 @@ std::string askClaude(const AiTarget &target, const std::string &system, const Q
 	const QString stopReason = message.value("stop_reason").toString();
 	if (stopReason == "refusal") {
 		QString category = message.value("stop_details").toObject().value("category").toString();
-		throw std::runtime_error("Claude hat die Anfrage abgelehnt (" +
-					 (category.isEmpty() ? std::string("ohne Angabe") : category.toStdString()) +
-					 ")");
+		throw std::runtime_error(
+			Tr("Ai.ClaudeRefusedRequest") +
+			(category.isEmpty() ? std::string(Tr("Ai.NoReasonGiven")) : category.toStdString()) + ")");
 	}
 	if (stopReason == "max_tokens")
-		throw std::runtime_error("Antwort von Claude wurde abgeschnitten");
+		throw std::runtime_error(Tr("Ai.ClaudesAnswerWasCutOff"));
 	for (const QJsonValue block : message.value("content").toArray()) {
 		if (block.toObject().value("type").toString() == "text")
 			return block.toObject().value("text").toString().toStdString();
 	}
-	throw std::runtime_error("Keine Textantwort von Claude erhalten");
+	throw std::runtime_error(Tr("Ai.NoTextAnswerReceivedFrom"));
 }
 
 QJsonObject askForJson(const AiTarget &target, const char *system, const char *jsonFormat, const QJsonObject &schema,
@@ -501,12 +494,11 @@ std::vector<std::string> toStrings(const QJsonValue &value, size_t limit)
 void requireReady(const AiTarget &target)
 {
 	if (target.baseUrl.find("ACCOUNT_ID") != std::string::npos)
-		throw std::runtime_error("In der Server-URL „ACCOUNT_ID“ durch deine Cloudflare-Account-ID ersetzen "
-					 "(Einstellungen → KI)");
+		throw std::runtime_error(Tr("Ai.ReplaceACCOUNTIDInServer"));
 	if (providerInfo(target.provider).needsKey && target.apiKey.empty())
-		throw std::runtime_error("Kein API-Key für den KI-Anbieter eingetragen (Einstellungen → KI)");
+		throw std::runtime_error(Tr("Ai.NoAPIKeyEnteredFor"));
 	if (target.model.empty())
-		throw std::runtime_error("Kein KI-Modell ausgewählt (Einstellungen → KI → Modelle laden)");
+		throw std::runtime_error(Tr("Ai.NoAIModelSelectedSettings"));
 }
 
 } // namespace
@@ -531,21 +523,23 @@ bool isNewSection(const std::string &level, const std::string &previousActivity,
 
 QString activityLabel(const std::string &activity)
 {
-	static const std::map<std::string, const char *> labels = {{"menu", "Menü"},
-								   {"loading", "Ladebildschirm"},
-								   {"cutscene", "Zwischensequenz"},
-								   {"dialogue", "Dialog"},
-								   {"exploring", "Erkunden"},
-								   {"combat", "Kampf"},
-								   {"boss_fight", "Bosskampf"},
-								   {"racing", "Rennen"},
-								   {"building", "Bauen"},
-								   {"shopping", "Shop"},
-								   {"victory", "Sieg"},
-								   {"defeat", "Niederlage"},
-								   {"other", "Sonstiges"}};
+	static const std::map<std::string, const char *> labels = {
+		{"menu", "Activity.Menu"},
+		{"loading", "Activity.Loading"},
+		{"cutscene", "Activity.Cutscene"},
+		{"dialogue", "Activity.Dialogue"},
+		{"exploring", "Activity.Exploring"},
+		{"combat", "Activity.Combat"},
+		{"boss_fight", "Activity.BossFight"},
+		{"racing", "Activity.Racing"},
+		{"building", "Activity.Building"},
+		{"shopping", "Activity.Shopping"},
+		{"victory", "Activity.Victory"},
+		{"defeat", "Activity.Defeat"},
+		{"other", "Activity.Other"},
+	};
 	const auto it = labels.find(activity);
-	return it != labels.end() ? QString::fromUtf8(it->second) : QString::fromStdString(activity);
+	return it != labels.end() ? QString::fromUtf8(Tr(it->second)) : QString::fromStdString(activity);
 }
 
 AiTarget aiTargetFrom(const Settings &settings)

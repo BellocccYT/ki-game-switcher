@@ -19,6 +19,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "dock.hpp"
 
 #include "capture-info.hpp"
+#include "i18n.hpp"
 #include "settings-dialog.hpp"
 #include "switcher.hpp"
 #include "window-hint.hpp"
@@ -73,7 +74,7 @@ SwitcherDock::SwitcherDock(Switcher *switcher, QWidget *parent) : QWidget(parent
 	state_->setTextFormat(Qt::RichText);
 	layout->addWidget(state_);
 
-	preview_ = new QLabel("Noch kein Bild – „Test“ zeigt, was die KI sieht");
+	preview_ = new QLabel(Tr("Dock.NoImageYetTestShows"));
 	preview_->setAlignment(Qt::AlignCenter);
 	preview_->setWordWrap(true);
 	// Ignored: Das Vorschaubild nimmt sich den freien Platz, statt das Dock zu vergrößern
@@ -91,11 +92,11 @@ SwitcherDock::SwitcherDock(Switcher *switcher, QWidget *parent) : QWidget(parent
 	title_ = valueLabel();
 	scene_ = valueLabel();
 	speech_ = valueLabel();
-	form->addRow("Erkannt:", detection_);
-	form->addRow("Situation:", scene_);
-	form->addRow("Kategorie:", category_);
-	form->addRow("Titel:", title_);
-	form->addRow("Stimme:", speech_);
+	form->addRow(Tr("Dock.Detected"), detection_);
+	form->addRow(Tr("Dock.Situation"), scene_);
+	form->addRow(Tr("Dock.Category"), category_);
+	form->addRow(Tr("Dock.Title"), title_);
+	form->addRow(Tr("Dock.Voice"), speech_);
 	layout->addLayout(form);
 
 	auto *twitchRow = new QHBoxLayout;
@@ -123,23 +124,22 @@ SwitcherDock::SwitcherDock(Switcher *switcher, QWidget *parent) : QWidget(parent
 	layout->addWidget(notice_);
 
 	auto *buttons = new QGridLayout;
-	checkButton_ = new QPushButton("Jetzt prüfen");
-	checkButton_->setToolTip("Prüft sofort und stellt Twitch ohne Bestätigungsrunden um");
+	checkButton_ = new QPushButton(Tr("Dock.CheckNow"));
+	checkButton_->setToolTip(Tr("Dock.ChecksImmediatelyAndSwitchesTwitch"));
 	testButton_ = new QPushButton("Test");
-	testButton_->setToolTip("Erkennt das Spiel, ändert aber nichts auf Twitch");
+	testButton_->setToolTip(Tr("Dock.DetectsGameButChangesNothing"));
 	pauseButton_ = new QPushButton;
-	settingsButton_ = new QPushButton("Einstellungen …");
+	settingsButton_ = new QPushButton(Tr("Dock.Settings"));
 	buttons->addWidget(checkButton_, 0, 0);
 	buttons->addWidget(testButton_, 0, 1);
 	buttons->addWidget(pauseButton_, 1, 0);
 	buttons->addWidget(settingsButton_, 1, 1);
-	correctButton_ = new QPushButton("Falsch erkannt? Richtiges Spiel setzen …");
-	correctButton_->setToolTip("Setzt die Kategorie von Hand und merkt sie sich auf Wunsch für das aufgenommene "
-				   "Programm");
+	correctButton_ = new QPushButton(Tr("Dock.WrongGameSetRightOne"));
+	correctButton_->setToolTip(Tr("Dock.SetsCategoryManuallyAndOptionally"));
 	buttons->addWidget(correctButton_, 2, 0, 1, 2);
 	layout->addLayout(buttons);
 
-	layout->addWidget(new QLabel("Verlauf:"));
+	layout->addWidget(new QLabel(Tr("Dock.History")));
 	history_ = new QListWidget;
 	history_->setWordWrap(true);
 	history_->setMinimumHeight(80);
@@ -183,25 +183,24 @@ void SwitcherDock::refresh()
 	const StatusSnapshot s = switcher_->status();
 
 	if (s.busy)
-		state_->setText(dot("#58a6ff", s.busySeconds > 0 ? QString("Prüft gerade … %1 s").arg(s.busySeconds)
-								 : QString("Prüft gerade …")));
+		state_->setText(dot("#58a6ff", s.busySeconds > 0 ? QString(Tr("Dock.Checking1S")).arg(s.busySeconds)
+								 : QString(Tr("Dock.Checking"))));
 	else if (!s.enabled)
-		state_->setText(dot("#8b949e", "Pausiert"));
+		state_->setText(dot("#8b949e", Tr("Dock.Paused")));
 	else if (!s.twitchConnected && !s.youtubeConnected)
-		state_->setText(dot("#e3a008", "Nicht mit Twitch oder YouTube verbunden"));
+		state_->setText(dot("#e3a008", Tr("Dock.NotConnectedToTwitchOr")));
 	else if (s.onlyLive && !s.streaming)
-		state_->setText(dot("#8b949e", "Wartet, bis du live bist (OBS oder Twitch)"));
+		state_->setText(dot("#8b949e", Tr("Dock.WaitingUntilYoureLiveOBS")));
 	else if (s.holdMinutes > 0)
-		state_->setText(dot(
-			"#3fb950",
-			QString("Aktiv – nach deiner Korrektur stellt die KI noch %1 min nicht um").arg(s.holdMinutes)));
+		state_->setText(dot("#3fb950", QString(Tr("Dock.ActiveAfterYourCorrectionAI")).arg(s.holdMinutes)));
 	else if (s.secondsUntilCheck >= 0)
-		state_->setText(
-			dot("#3fb950", QString("Aktiv%1 – nächste Prüfung in %2 s")
-					       .arg(s.liveOnTwitch ? " (live laut " + s.liveSource + ")" : QString())
-					       .arg(s.secondsUntilCheck)));
+		state_->setText(dot("#3fb950",
+				    QString(Tr("Dock.Active1NextCheckIn"))
+					    .arg(s.liveOnTwitch ? QString(Tr("Dock.LiveAccordingTo")).arg(s.liveSource)
+								: QString())
+					    .arg(s.secondsUntilCheck)));
 	else
-		state_->setText(dot("#3fb950", "Aktiv"));
+		state_->setText(dot("#3fb950", Tr("Dock.Active")));
 
 	detection_->setText(s.detection.isEmpty() ? "–" : s.detection);
 	detection_->setToolTip(
@@ -210,27 +209,26 @@ void SwitcherDock::refresh()
 	category_->setText(s.category.isEmpty() ? "–" : s.category);
 	// Stimme: zuletzt Verstandenes, sonst der Status (z. B. Download des Sprachmodells)
 	form_->setRowVisible(speech_, s.voiceEnabled);
-	speech_->setText(s.speech.isEmpty() ? s.voiceStatus : "„" + s.speech + "“");
+	speech_->setText(s.speech.isEmpty() ? s.voiceStatus : QString(Tr("Dock.QuotedSpeech")).arg(s.speech));
 	speech_->setToolTip(s.voiceStatus);
 	title_->setText(s.title.isEmpty() ? "–" : s.title);
 
 	if (s.loginRunning) {
-		twitch_->setText("Twitch: Anmeldung läuft …");
-		twitchButton_->setText("Abbrechen");
+		twitch_->setText(Tr("Dock.TwitchSigningIn"));
+		twitchButton_->setText(Tr("Dock.Cancel"));
 	} else if (s.twitchConnected) {
 		twitch_->setText("Twitch: " + s.twitchLogin);
-		twitchButton_->setText("Trennen");
+		twitchButton_->setText(Tr("Dock.Disconnect"));
 	} else {
-		twitch_->setText("Twitch: nicht verbunden");
-		twitchButton_->setText("Verbinden");
+		twitch_->setText(Tr("Dock.TwitchNotConnected"));
+		twitchButton_->setText(Tr("Dock.Connect"));
 	}
 
 	deviceCode_->setVisible(!s.deviceCode.isEmpty());
 	if (!s.deviceCode.isEmpty()) {
 		const QString service = s.loginService.isEmpty() ? QStringLiteral("Twitch") : s.loginService;
 		deviceCode_->setText(
-			QString("Bestätige im Browser den Code <b>%1</b><br><a href=\"%2\">%3-Anmeldung "
-				"öffnen</a>")
+			QString(Tr("Dock.ConfirmCodeB1B"))
 				.arg(s.deviceCode.toHtmlEscaped(), s.verificationUri.toHtmlEscaped(), service));
 	}
 	youtube_->setVisible(s.youtubeConnected);
@@ -239,7 +237,7 @@ void SwitcherDock::refresh()
 	notice_->setVisible(!s.notice.isEmpty());
 	notice_->setText(s.notice);
 
-	pauseButton_->setText(s.enabled ? "Pausieren" : "Fortsetzen");
+	pauseButton_->setText(s.enabled ? Tr("Dock.Pause") : Tr("Dock.Resume"));
 	checkButton_->setEnabled(!s.busy);
 	testButton_->setEnabled(!s.busy);
 	correctButton_->setEnabled(s.twitchConnected || s.youtubeConnected);
@@ -284,9 +282,8 @@ void SwitcherDock::onTwitchButton()
 	if (s.loginRunning) {
 		switcher_->cancelTwitchLogin();
 	} else if (s.twitchConnected) {
-		if (QMessageBox::question(this, "TitleSync",
-					  "Twitch-Verbindung wirklich trennen? Titel und Kategorie werden dann "
-					  "nicht mehr automatisch umgestellt.") == QMessageBox::Yes)
+		if (QMessageBox::question(this, "TitleSync", Tr("Dock.ReallyDisconnectTwitchTitleAnd")) ==
+		    QMessageBox::Yes)
 			switcher_->disconnectTwitch();
 	} else {
 		switcher_->connectTwitch();
@@ -301,24 +298,25 @@ void SwitcherDock::onCorrect()
 	// Nicht blockierend (open statt exec), damit OBS weiterläuft, solange der Dialog offen ist
 	auto *dialog = new QDialog(this);
 	dialog->setAttribute(Qt::WA_DeleteOnClose);
-	dialog->setWindowTitle("Richtiges Spiel setzen");
+	dialog->setWindowTitle(Tr("Dock.SetRightGame"));
 	dialog->setMinimumWidth(420);
 	auto *form = new QFormLayout(dialog);
 
 	auto *category = new QLineEdit;
-	category->setPlaceholderText("Twitch-Kategorie, z. B. Minecraft");
-	form->addRow("Spiel:", category);
+	category->setPlaceholderText(Tr("Dock.TwitchCategoryEGMinecraft"));
+	form->addRow(Tr("Dock.Game"), category);
 
 	// Programme, für die man sich die Kategorie merken kann
 	auto *remember = new QComboBox;
-	remember->addItem("nicht merken", QString());
+	remember->addItem(Tr("Dock.DontRemember"), QString());
 	std::set<QString> seen;
 	int preselect = 0;
 	for (const CapturedApp &app : activeCapturedApps()) {
 		const QString exe = QString::fromStdString(app.executable);
 		if (!seen.insert(exe.toLower()).second)
 			continue;
-		remember->addItem(QString("%1 (%2)").arg(exe, app.gameCapture ? "Spielaufnahme" : "Fensteraufnahme"),
+		remember->addItem(QString("%1 (%2)").arg(exe, app.gameCapture ? Tr("Dock.GameCapture")
+									      : Tr("Dock.WindowCapture")),
 				  exe);
 		if (app.gameCapture && preselect == 0)
 			preselect = remember->count() - 1;
@@ -326,9 +324,9 @@ void SwitcherDock::onCorrect()
 	const QString foreground = QString::fromStdString(foregroundWindow().executable);
 	if (!foreground.isEmpty() && !foreground.startsWith("obs", Qt::CaseInsensitive) &&
 	    seen.insert(foreground.toLower()).second)
-		remember->addItem(foreground + " (aktives Fenster)", foreground);
+		remember->addItem(foreground + Tr("Dock.ActiveWindow"), foreground);
 	remember->setCurrentIndex(preselect);
-	form->addRow("Merken für:", remember);
+	form->addRow(Tr("Dock.RememberFor"), remember);
 
 	// Emulatoren: nur für dieses Spiel merken (Teil des Fenstertitels), andere Spiele bleiben unberührt
 	std::map<QString, QString> emulatorGames;
@@ -338,8 +336,8 @@ void SwitcherDock::onCorrect()
 				QString::fromStdString(gameFromWindowTitle(app.title));
 	}
 	auto *windowTitle = new QLineEdit;
-	windowTitle->setPlaceholderText("Teil des Fenstertitels, z. B. Mario Kart");
-	form->addRow("Nur wenn Fenstertitel enthält:", windowTitle);
+	windowTitle->setPlaceholderText(Tr("Dock.PartOfWindowTitleE"));
+	form->addRow(Tr("Dock.OnlyIfWindowTitleContains"), windowTitle);
 	auto updateWindowTitle = [form, remember, windowTitle, emulatorGames, category] {
 		const auto it = emulatorGames.find(remember->currentData().toString());
 		const bool emulator = it != emulatorGames.end();
@@ -351,16 +349,13 @@ void SwitcherDock::onCorrect()
 	connect(remember, &QComboBox::currentIndexChanged, dialog, updateWindowTitle);
 	updateWindowTitle();
 
-	auto *info =
-		new QLabel("Mit „Merken“ stellt das Plugin künftig sofort und ohne KI auf dieses Spiel um, "
-			   "sobald OBS das Programm aufnimmt – bei Emulatoren nur, wenn der Fenstertitel passt. Ohne "
-			   "Merken stellt die KI 15 Minuten lang nicht um.");
+	auto *info = new QLabel(Tr("Dock.WithRememberPluginSwitchesTo"));
 	info->setWordWrap(true);
 	form->addRow(info);
 
 	auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-	buttons->button(QDialogButtonBox::Ok)->setText("Setzen");
-	buttons->button(QDialogButtonBox::Cancel)->setText("Abbrechen");
+	buttons->button(QDialogButtonBox::Ok)->setText(Tr("Dock.Set"));
+	buttons->button(QDialogButtonBox::Cancel)->setText(Tr("Dock.Cancel"));
 	connect(buttons, &QDialogButtonBox::accepted, dialog, &QDialog::accept);
 	connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
 	form->addRow(buttons);

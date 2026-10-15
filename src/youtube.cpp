@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "youtube.hpp"
+#include "i18n.hpp"
 
 #include "http.hpp"
 #include "settings.hpp"
@@ -65,7 +66,7 @@ std::string str(const QJsonObject &object, const char *key)
 std::string describe(const HttpResponse &response)
 {
 	if (!response.error.empty())
-		return "keine Verbindung zu Google (" + response.error + ")";
+		return Trf("YouTube.NoConnection", {response.error});
 	const QJsonObject body = parseObject(response.body);
 	QString message = body.value("error").isObject() ? body.value("error").toObject().value("message").toString()
 							 : body.value("error_description").toString();
@@ -142,12 +143,12 @@ void YouTube::disconnect()
 DeviceFlow YouTube::startDeviceFlow(const std::string &clientId)
 {
 	if (clientId.empty())
-		throw YouTubeError("Keine YouTube-Client-ID eingetragen (Einstellungen → YouTube)");
+		throw YouTubeError(Tr("YouTube.NoYouTubeClientIDEntered"));
 	HttpResponse response = httpRequest("POST", oauthUrl() + "/device/code",
 					    {"Content-Type: application/x-www-form-urlencoded"},
 					    formEncode({{"client_id", clientId}, {"scope", kScope}}));
 	if (response.status != 200)
-		throw YouTubeError("Google lehnt die Anmeldung ab: " + describe(response));
+		throw YouTubeError(Tr("YouTube.GoogleRejectedSignIn") + describe(response));
 
 	QJsonObject data = parseObject(response.body);
 	DeviceFlow flow;
@@ -188,13 +189,12 @@ bool YouTube::waitForDeviceLogin(const std::string &clientId, const std::string 
 			accessToken_ = str(data, "access_token");
 			refreshToken_ = str(data, "refresh_token");
 			if (refreshToken_.empty())
-				throw YouTubeError(
-					"Google hat kein dauerhaftes Token geliefert – bitte erneut verbinden");
+				throw YouTubeError(Tr("YouTube.GoogleDidntProvidePermanentToken"));
 			// Kanalname für die Anzeige
 			const QJsonArray channels =
 				api("GET", "/channels", "part=snippet&mine=true").value("items").toArray();
 			channel_ = channels.isEmpty()
-					   ? std::string("YouTube-Kanal")
+					   ? std::string(Tr("YouTube.YouTubeChannel"))
 					   : str(channels.first().toObject().value("snippet").toObject(), "title");
 			save();
 			publishInfo();
@@ -209,8 +209,8 @@ bool YouTube::waitForDeviceLogin(const std::string &clientId, const std::string 
 			continue;
 		}
 		if (error == "access_denied")
-			throw YouTubeError("YouTube-Anmeldung abgelehnt");
-		throw YouTubeError("YouTube-Anmeldung fehlgeschlagen: " + describe(response));
+			throw YouTubeError(Tr("YouTube.YouTubeSignInRejected"));
+		throw YouTubeError(Tr("YouTube.YouTubeSignInFailed") + describe(response));
 	}
 	return false;
 }
@@ -225,10 +225,10 @@ void YouTube::refresh()
 							{"client_secret", clientSecret_}}));
 	if (response.status == 400 || response.status == 401) {
 		disconnect();
-		throw YouTubeError("YouTube-Anmeldung abgelaufen – bitte neu verbinden");
+		throw YouTubeError(Tr("YouTube.YouTubeSignInExpiredPlease"));
 	}
 	if (response.status != 200)
-		throw YouTubeError("YouTube-Token konnte nicht erneuert werden: " + describe(response));
+		throw YouTubeError(Tr("YouTube.CouldntRenewYouTubeToken") + describe(response));
 	accessToken_ = str(parseObject(response.body), "access_token");
 	save();
 }
@@ -237,7 +237,7 @@ QJsonObject YouTube::api(const char *method, const std::string &path, const std:
 {
 	std::lock_guard lock(mutex_);
 	if (refreshToken_.empty())
-		throw YouTubeError("Nicht mit YouTube verbunden");
+		throw YouTubeError(Tr("YouTube.NotConnectedToYouTube"));
 	if (accessToken_.empty())
 		refresh();
 
@@ -252,7 +252,7 @@ QJsonObject YouTube::api(const char *method, const std::string &path, const std:
 			continue;
 		}
 		if (response.status == 403 && QString::fromStdString(response.body).contains("quota"))
-			throw YouTubeError("YouTube-Tageslimit deines Google-Projekts erreicht");
+			throw YouTubeError(Tr("YouTube.DailyYouTubeQuotaOfYour"));
 		if (response.status < 200 || response.status >= 300)
 			throw YouTubeError(std::string("YouTube ") + method + " " + path + ": " + describe(response));
 		return parseObject(response.body);

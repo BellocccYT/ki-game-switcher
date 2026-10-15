@@ -102,6 +102,7 @@ private:
 	QComboBox *titleMode_;
 	QComboBox *titlePreset_;
 	QComboBox *titleLanguage_;
+	QComboBox *uiLanguage_;
 	QCheckBox *titleEmojis_;
 	QLineEdit *titleTemplate_;
 	QPlainTextEdit *titleStyle_;

@@ -42,13 +42,13 @@ enum class Provider {
 constexpr int kProviderCount = 12;
 
 struct ProviderInfo {
-	const char *id; // Schlüssel in der Konfigurationsdatei
-	const char *label;
+	const char *id;    // Schlüssel in der Konfigurationsdatei
+	const char *label; // Übersetzungsschlüssel (data/locale), Anzeige über Tr()
 	const char *baseUrl;
 	const char *defaultModel;
 	const char *defaultFallbackModel; // springt ein, wenn das Hauptmodell überlastet ist
 	bool needsKey;
-	const char *help; // Rich-Text für den Einstellungsdialog
+	const char *help; // Übersetzungsschlüssel für den Rich-Text im Einstellungsdialog
 };
 
 const ProviderInfo &providerInfo(Provider provider);
@@ -61,7 +61,7 @@ enum class TitleMode { Ai = 0, Template, Keep };
 // Fertige Stilvorgaben für KI-Titel, damit niemand lange Anweisungen schreiben muss
 struct TitlePreset {
 	const char *id;
-	const char *label;
+	const char *label; // Übersetzungsschlüssel
 	const char *style; // Anweisung an die KI; leer = nur die eigenen Ergänzungen
 };
 const std::vector<TitlePreset> &titlePresets();
@@ -70,8 +70,8 @@ const TitlePreset &titlePreset(const std::string &id);
 // Sprachmodelle für die lokale Spracherkennung (whisper.cpp)
 struct VoiceModelInfo {
 	const char *id;
-	const char *label;
-	const char *file; // Dateiname auf huggingface.co/ggerganov/whisper.cpp
+	const char *label; // Übersetzungsschlüssel
+	const char *file;  // Dateiname auf huggingface.co/ggerganov/whisper.cpp
 	int sizeMb;
 };
 const std::vector<VoiceModelInfo> &voiceModels();
@@ -122,7 +122,8 @@ struct Settings {
 	std::string titleStyle;               // eigene Ergänzungen zur Stilvorgabe
 	std::string titlePrefix;              // steht immer vorne im Titel, egal welches Modell
 	std::string titleSuffix;              // steht immer hinten im Titel, egal welches Modell
-	std::string titleLanguage = "de";     // „de“ oder „en“
+	std::string titleLanguage = "de";     // „de“ oder „en“ (ohne gespeicherten Wert: wie die Sprache von OBS)
+	std::string uiLanguage = "auto";      // Oberfläche: „auto“ (wie OBS), „de“ oder „en“
 	bool titleEmojis = true;              // aus = das Plugin entfernt Emojis aus Titeln
 	std::string twitchTags;               // bei jedem Wechsel setzen (leer = Tags nicht anfassen)
 	bool progressTitles = true;           // Titel auch bei Fortschritt im selben Spiel anpassen

@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "http.hpp"
+#include "i18n.hpp"
 
 #include <plugin-support.h>
 
@@ -99,7 +100,7 @@ HttpResponse httpRequest(const std::string &method, const std::string &url, cons
 
 	CURL *curl = curl_easy_init();
 	if (!curl) {
-		response.error = "curl_easy_init fehlgeschlagen";
+		response.error = Tr("Http.CurlEasyInitFailed");
 		return response;
 	}
 
@@ -166,7 +167,7 @@ std::string httpDownload(const std::string &url, const std::string &targetPath,
 	state.file = std::fopen(partial.c_str(), "wb");
 #endif
 	if (!state.file)
-		return "Datei kann nicht angelegt werden: " + partial.u8string();
+		return Tr("Http.CannotCreateFile") + partial.u8string();
 
 	CURL *curl = curl_easy_init();
 	char errorBuffer[CURL_ERROR_SIZE] = {};
@@ -200,7 +201,7 @@ std::string httpDownload(const std::string &url, const std::string &targetPath,
 	fs::rename(partial, target, ignored);
 	if (ignored) {
 		fs::remove(partial, ignored);
-		return "Datei kann nicht gespeichert werden: " + target.u8string();
+		return Tr("Http.CannotSaveFile") + target.u8string();
 	}
 	return {};
 }

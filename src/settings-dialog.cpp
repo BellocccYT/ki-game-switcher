@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "settings-dialog.hpp"
+#include "i18n.hpp"
 
 #include "ai-client.hpp"
 #include "capture-info.hpp"
@@ -118,27 +119,39 @@ SettingsDialog::SettingsDialog(Switcher *switcher, QWidget *parent)
 	  switcher_(switcher),
 	  settings_(switcher->settings())
 {
-	setWindowTitle("TitleSync – Einstellungen");
+	setWindowTitle(Tr("Settings.TitleSyncSettings"));
 	setMinimumWidth(680);
 
 	auto *tabs = new QTabWidget;
-	tabs->addTab(createAiTab(), "KI");
+	tabs->addTab(createAiTab(), Tr("Settings.AI"));
 	tabs->addTab(createTwitchTab(), "Twitch");
 	tabs->addTab(createYouTubeTab(), "YouTube");
-	tabs->addTab(createDetectionTab(), "Erkennung");
-	tabs->addTab(createTitleTab(), "Titel");
-	tabs->addTab(createVoiceTab(), "Stimme");
-	tabs->addTab(createRulesTab(), "Zuordnungen");
+	tabs->addTab(createDetectionTab(), Tr("Settings.Detection"));
+	tabs->addTab(createTitleTab(), Tr("Settings.Title"));
+	tabs->addTab(createVoiceTab(), Tr("Settings.Voice"));
+	tabs->addTab(createRulesTab(), Tr("Settings.Rules"));
 
 	auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
-	buttons->button(QDialogButtonBox::Save)->setText("Speichern");
-	buttons->button(QDialogButtonBox::Cancel)->setText("Abbrechen");
+	buttons->button(QDialogButtonBox::Save)->setText(Tr("Settings.Save"));
+	buttons->button(QDialogButtonBox::Cancel)->setText(Tr("Settings.Cancel"));
 	connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::save);
 	connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
+	// Sprache der Oberfläche; gilt für neue Fenster sofort, für das Dock nach einem Neustart von OBS
+	uiLanguage_ = new QComboBox;
+	uiLanguage_->addItem(Tr("Settings.UiLanguageAuto"), QStringLiteral("auto"));
+	uiLanguage_->addItem(QStringLiteral("Deutsch"), QStringLiteral("de"));
+	uiLanguage_->addItem(QStringLiteral("English"), QStringLiteral("en"));
+	uiLanguage_->setCurrentIndex(std::max(0, uiLanguage_->findData(qstr(settings_.uiLanguage))));
+	auto *bottom = new QHBoxLayout;
+	bottom->addWidget(new QLabel(Tr("Settings.UiLanguage")));
+	bottom->addWidget(uiLanguage_);
+	bottom->addStretch();
+	bottom->addWidget(buttons);
+
 	auto *layout = new QVBoxLayout(this);
 	layout->addWidget(tabs);
-	layout->addWidget(buttons);
+	layout->addLayout(bottom);
 
 	connect(switcher, &Switcher::statusChanged, this, &SettingsDialog::refreshTwitch);
 	connect(switcher, &Switcher::statusChanged, this, &SettingsDialog::refreshYouTube);
@@ -159,8 +172,8 @@ QWidget *SettingsDialog::createAiTab()
 
 	provider_ = new QComboBox;
 	for (Provider provider : providerDisplayOrder())
-		provider_->addItem(providerInfo(provider).label, static_cast<int>(provider));
-	form->addRow("Anbieter:", provider_);
+		provider_->addItem(Tr(providerInfo(provider).label), static_cast<int>(provider));
+	form->addRow(Tr("Settings.Provider"), provider_);
 
 	providerHelp_ = hint({});
 	form->addRow(providerHelp_);
@@ -171,7 +184,7 @@ QWidget *SettingsDialog::createAiTab()
 	auto *keyRow = new QHBoxLayout;
 	keyRow->addWidget(apiKey_, 1);
 	keyRow->addWidget(showKey_);
-	form->addRow("API-Key:", keyRow);
+	form->addRow(Tr("Settings.APIKey"), keyRow);
 	connect(showKey_, &QCheckBox::toggled, this,
 		[this](bool show) { apiKey_->setEchoMode(show ? QLineEdit::Normal : QLineEdit::Password); });
 
@@ -179,27 +192,26 @@ QWidget *SettingsDialog::createAiTab()
 	model_->setEditable(true);
 	model_->setInsertPolicy(QComboBox::NoInsert);
 	model_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-	loadModels_ = new QPushButton("Modelle laden");
-	loadModels_->setToolTip("Fragt beim Anbieter ab, welche Modelle du nutzen kannst – prüft dabei auch den Key");
+	loadModels_ = new QPushButton(Tr("Settings.LoadModels"));
+	loadModels_->setToolTip(Tr("Settings.AsksProviderWhichModelsYou"));
 	auto *modelRow = new QHBoxLayout;
 	modelRow->addWidget(model_, 1);
 	modelRow->addWidget(loadModels_);
-	form->addRow("Modell:", modelRow);
+	form->addRow(Tr("Settings.Model"), modelRow);
 	fallbackModel_ = new QComboBox;
 	fallbackModel_->setEditable(true);
 	fallbackModel_->setInsertPolicy(QComboBox::NoInsert);
 	fallbackModel_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
 	fallbackModel_->lineEdit()->setPlaceholderText("keins");
-	fallbackModel_->setToolTip("Springt ein, wenn das Hauptmodell überlastet ist, sein Limit erreicht hat oder "
-				   "nicht antwortet.");
-	form->addRow("Ersatzmodell:", fallbackModel_);
+	fallbackModel_->setToolTip(Tr("Settings.StepsInWhenMainModel"));
+	form->addRow(Tr("Settings.FallbackModel"), fallbackModel_);
 
 	modelStatus_ = hint({});
 	form->addRow(modelStatus_);
 	connect(loadModels_, &QPushButton::clicked, this, &SettingsDialog::loadModels);
 
 	baseUrl_ = new QLineEdit;
-	form->addRow("Server-URL:", baseUrl_);
+	form->addRow(Tr("Settings.ServerURL"), baseUrl_);
 
 	connect(provider_, &QComboBox::currentIndexChanged, this, [this] {
 		storeProvider(shownProvider_);
@@ -220,7 +232,7 @@ QWidget *SettingsDialog::createTwitchTab()
 	auto *row = new QHBoxLayout;
 	row->addWidget(twitchStatus_, 1);
 	row->addWidget(twitchButton_);
-	form->addRow("Konto:", row);
+	form->addRow(Tr("Settings.Account"), row);
 	connect(twitchButton_, &QPushButton::clicked, this, [this] {
 		if (!switcher_)
 			return;
@@ -239,21 +251,16 @@ QWidget *SettingsDialog::createTwitchTab()
 		}
 	});
 
-	form->addRow(hint("Beim Verbinden öffnet sich Twitch im Browser. Dort den angezeigten Code bestätigen – "
-			  "das Plugin darf danach nur Titel und Kategorie deines Kanals ändern."));
+	form->addRow(hint(Tr("Settings.ConnectingOpensTwitchInYour")));
 
 	clientId_ = new QLineEdit(qstr(settings_.twitchClientId));
-	clientId_->setPlaceholderText("leer = Twitch-App des Plugins");
-	form->addRow("Eigene Client-ID:", clientId_);
-	form->addRow(hint("Nur nötig, wenn du eine eigene App auf "
-			  "<a href=\"https://dev.twitch.tv/console/apps\">dev.twitch.tv</a> nutzen willst "
-			  "(Client-Typ „Öffentlich“)."));
+	clientId_->setPlaceholderText(Tr("Settings.EmptyPluginsTwitchApp"));
+	form->addRow(Tr("Settings.OwnClientID"), clientId_);
+	form->addRow(hint(Tr("Settings.OnlyNeededIfYouWant")));
 	twitchTags_ = new QLineEdit(qstr(settings_.twitchTags));
-	twitchTags_->setPlaceholderText("z. B. Deutsch, Gaming – leer = Tags nicht ändern");
-	twitchTags_->setToolTip("Werden bei jedem Spielwechsel gesetzt, zusammen mit den Tags der Zuordnung. "
-				"Twitch erlaubt höchstens 10 Tags aus Buchstaben und Ziffern (max. 25 Zeichen). "
-				"Leer lassen, wenn du deine Tags selbst pflegst.");
-	form->addRow("Tags bei jedem Wechsel:", twitchTags_);
+	twitchTags_->setPlaceholderText(Tr("Settings.EGEnglishGamingEmpty"));
+	twitchTags_->setToolTip(Tr("Settings.SetOnEveryGameSwitch"));
+	form->addRow(Tr("Settings.TagsOnEverySwitch"), twitchTags_);
 	return page;
 }
 
@@ -262,13 +269,12 @@ QWidget *SettingsDialog::createDetectionTab()
 	auto *page = new QWidget;
 	auto *form = formPage(page);
 
-	enabled_ = new QCheckBox("Automatisch prüfen und umstellen");
+	enabled_ = new QCheckBox(Tr("Settings.CheckAndSwitchAutomatically"));
 	enabled_->setChecked(settings_.enabled);
 	form->addRow(enabled_);
 
-	onlyLive_ = new QCheckBox("Nur prüfen, während du live bist");
-	onlyLive_->setToolTip("Live heißt: OBS streamt oder Twitch meldet deinen Kanal als live (wird jede Minute "
-			      "abgefragt). So klappt es auch, wenn du nicht über „Stream starten“ in OBS live gehst.");
+	onlyLive_ = new QCheckBox(Tr("Settings.OnlyCheckWhileYoureLive"));
+	onlyLive_->setToolTip(Tr("Settings.LiveMeansOBSIsStreaming"));
 	onlyLive_->setChecked(settings_.onlyLive);
 	form->addRow(onlyLive_);
 
@@ -277,65 +283,56 @@ QWidget *SettingsDialog::createDetectionTab()
 	interval_->setSingleStep(10);
 	interval_->setSuffix(" s");
 	interval_->setValue(settings_.interval);
-	form->addRow("Prüfintervall:", interval_);
+	form->addRow(Tr("Settings.CheckInterval"), interval_);
 
 	source_ = new QComboBox;
-	source_->addItem("Programmausgabe (was die Zuschauer sehen)", QString());
+	source_->addItem(Tr("Settings.ProgramOutputWhatViewersSee"), QString());
 	for (const std::string &name : videoSources())
 		source_->addItem(qstr(name), qstr(name));
 	if (!settings_.sourceName.empty() && source_->findData(qstr(settings_.sourceName)) < 0)
-		source_->addItem(qstr(settings_.sourceName) + " (nicht gefunden)", qstr(settings_.sourceName));
+		source_->addItem(qstr(settings_.sourceName) + Tr("Settings.NotFound"), qstr(settings_.sourceName));
 	source_->setCurrentIndex(std::max(0, source_->findData(qstr(settings_.sourceName))));
-	source_->setToolTip("Eine einzelne Quelle wie deine Spielaufnahme ist genauer, weil Webcam und Overlays "
-			    "die KI dann nicht ablenken.");
-	form->addRow("Bildquelle:", source_);
+	source_->setToolTip(Tr("Settings.SingleSourceLikeYourGame"));
+	form->addRow(Tr("Settings.ImageSource"), source_);
 
 	imageWidth_ = new QSpinBox;
 	imageWidth_->setRange(512, 1280);
 	imageWidth_->setSingleStep(64);
 	imageWidth_->setSuffix(" px");
 	imageWidth_->setValue(settings_.imageWidth);
-	imageWidth_->setToolTip("Größer erkennt Details besser, braucht aber mehr Daten pro Prüfung.");
-	form->addRow("Bildbreite:", imageWidth_);
+	imageWidth_->setToolTip(Tr("Settings.LargerRecognizesDetailsBetterBut"));
+	form->addRow(Tr("Settings.ImageWidth"), imageWidth_);
 
 	minConfidence_ = new QSpinBox;
 	minConfidence_->setRange(0, 100);
 	minConfidence_->setSuffix(" %");
 	minConfidence_->setValue(settings_.minConfidence);
-	form->addRow("Mindest-Sicherheit:", minConfidence_);
+	form->addRow(Tr("Settings.MinimumConfidence"), minConfidence_);
 
 	confirmations_ = new QSpinBox;
 	confirmations_->setRange(1, 10);
 	confirmations_->setValue(settings_.confirmations);
-	confirmations_->setToolTip("So oft hintereinander muss das neue Spiel erkannt werden. Verhindert Wechsel, "
-				   "wenn du nur kurz in ein anderes Fenster schaust.");
-	form->addRow("Bestätigungen:", confirmations_);
+	confirmations_->setToolTip(Tr("Settings.HowManyTimesInRow"));
+	form->addRow(Tr("Settings.Confirmations"), confirmations_);
 
 	idleCategory_ = new QLineEdit(qstr(settings_.idleCategory));
-	idleCategory_->setPlaceholderText("z. B. Just Chatting – leer = Kategorie bleibt");
-	form->addRow("Ohne Spiel:", idleCategory_);
+	idleCategory_->setPlaceholderText(Tr("Settings.EGJustChattingEmpty"));
+	form->addRow(Tr("Settings.NoGame"), idleCategory_);
 
-	windowHint_ = new QCheckBox("Programm- und Fensternamen als Hinweis mitsenden");
+	windowHint_ = new QCheckBox(Tr("Settings.SendApplicationAndWindowNames"));
 	windowHint_->setChecked(settings_.sendWindowHint);
-	windowHint_->setToolTip("Schickt mit, welche Programme OBS aufnimmt und welches Fenster aktiv ist. Verbessert "
-				"die Erkennung deutlich, Fenstertitel können aber private Infos enthalten (z. B. "
-				"Browser-Tabs).");
+	windowHint_->setToolTip(Tr("Settings.SendsWhichApplicationsOBSCaptures"));
 	form->addRow(windowHint_);
 
-	verifyDatabase_ = new QCheckBox("Vor dem Umstellen mit Steam-Screenshots abgleichen");
+	verifyDatabase_ = new QCheckBox(Tr("Settings.CrossCheckWithSteamScreenshots"));
 	verifyDatabase_->setChecked(settings_.verifyWithDatabase);
-	verifyDatabase_->setToolTip(
-		"Bevor die KI auf ein anderes Spiel umstellt, holt das Plugin Screenshots der "
-		"infrage kommenden Spiele aus dem Steam-Shop und lässt die KI vergleichen. Genauer, "
-		"dauert pro Wechsel aber einige Sekunden länger. Spiele, die es nicht bei Steam gibt, "
-		"werden ohne Abgleich umgestellt.");
+	verifyDatabase_->setToolTip(Tr("Settings.BeforeAISwitchesToAnother"));
 	form->addRow(verifyDatabase_);
 
 	blocked_ = new QLineEdit(qstr(settings_.blockedCategories));
-	blocked_->setPlaceholderText("z. B. Just Chatting, Bloodborne");
-	blocked_->setToolTip("Auf diese Kategorien stellt die KI nie um – praktisch für Spiele, mit denen sie dein "
-			     "Spiel oft verwechselt. Feste Zuordnungen gelten trotzdem.");
-	form->addRow("Nie umstellen auf:", blocked_);
+	blocked_->setPlaceholderText(Tr("Settings.EGJustChattingBloodborne"));
+	blocked_->setToolTip(Tr("Settings.AINeverSwitchesToThese"));
+	form->addRow(Tr("Settings.NeverSwitchTo"), blocked_);
 	return page;
 }
 
@@ -345,92 +342,81 @@ QWidget *SettingsDialog::createTitleTab()
 	auto *outer = new QVBoxLayout(page);
 
 	// -- Wie der Titel entsteht
-	auto *how = new QGroupBox("So entsteht der Titel");
+	auto *how = new QGroupBox(Tr("Settings.HowTitleIsMade"));
 	auto *form = new QFormLayout(how);
 	titleMode_ = new QComboBox;
-	titleMode_->addItem("Von der KI schreiben lassen", static_cast<int>(TitleMode::Ai));
-	titleMode_->addItem("Vorlage verwenden", static_cast<int>(TitleMode::Template));
-	titleMode_->addItem("Titel nicht ändern", static_cast<int>(TitleMode::Keep));
+	titleMode_->addItem(Tr("Settings.LetAIWriteIt"), static_cast<int>(TitleMode::Ai));
+	titleMode_->addItem(Tr("Settings.UseTemplate"), static_cast<int>(TitleMode::Template));
+	titleMode_->addItem(Tr("Settings.DontChangeTitle"), static_cast<int>(TitleMode::Keep));
 	titleMode_->setCurrentIndex(std::max(0, titleMode_->findData(static_cast<int>(settings_.titleMode))));
-	form->addRow("Titel:", titleMode_);
+	form->addRow(Tr("Settings.Title2"), titleMode_);
 
 	titlePreset_ = new QComboBox;
 	for (const TitlePreset &preset : titlePresets()) {
-		titlePreset_->addItem(preset.label, QString(preset.id));
+		titlePreset_->addItem(Tr(preset.label), QString(preset.id));
 		titlePreset_->setItemData(titlePreset_->count() - 1, QString::fromUtf8(preset.style), Qt::ToolTipRole);
 	}
 	titlePreset_->setCurrentIndex(std::max(0, titlePreset_->findData(qstr(settings_.titlePreset))));
-	form->addRow("Stil:", titlePreset_);
+	form->addRow(Tr("Settings.Style"), titlePreset_);
 
 	titleLanguage_ = new QComboBox;
-	titleLanguage_->addItem("Deutsch", QStringLiteral("de"));
-	titleLanguage_->addItem("Englisch", QStringLiteral("en"));
+	titleLanguage_->addItem(Tr("Settings.German"), QStringLiteral("de"));
+	titleLanguage_->addItem(Tr("Settings.English"), QStringLiteral("en"));
 	titleLanguage_->setCurrentIndex(std::max(0, titleLanguage_->findData(qstr(settings_.titleLanguage))));
-	titleEmojis_ = new QCheckBox("Emojis erlauben");
+	titleEmojis_ = new QCheckBox(Tr("Settings.AllowEmojis"));
 	titleEmojis_->setChecked(settings_.titleEmojis);
-	titleEmojis_->setToolTip(
-		"Aus: Das Plugin entfernt Emojis selbst aus jedem Titel – auch aus der Vorlage und "
-		"egal, was das Modell schreibt. Deine festen Teile vorne und hinten bleiben unverändert.");
+	titleEmojis_->setToolTip(Tr("Settings.OffPluginRemovesEmojisFrom"));
 	auto *languageRow = new QHBoxLayout;
 	languageRow->addWidget(titleLanguage_);
 	languageRow->addWidget(titleEmojis_);
 	languageRow->addStretch(1);
-	form->addRow("Sprache:", languageRow);
+	form->addRow(Tr("Settings.Language"), languageRow);
 
 	titleStyle_ = new QPlainTextEdit(qstr(settings_.titleStyle));
 	titleStyle_->setMaximumHeight(60);
-	titleStyle_->setPlaceholderText("Optional, z. B. „Erwähne, dass es ein Blind-Run ist“");
-	form->addRow("Eigene Ergänzungen:", titleStyle_);
-	form->addRow(hint("Der Stil ist eine fertige Vorgabe – du musst keine lange Anweisung schreiben. Immer gilt "
-			  "zusätzlich: gewählte Sprache, eine Zeile, keine Hashtags, nichts Erfundenes, höchstens 140 "
-			  "Zeichen."));
+	titleStyle_->setPlaceholderText(Tr("Settings.OptionalEGMentionThat"));
+	form->addRow(Tr("Settings.OwnAdditions"), titleStyle_);
+	form->addRow(hint(Tr("Settings.StyleIsReadyMadePreset")));
 
 	titleTemplate_ = new QLineEdit(qstr(settings_.titleTemplate));
-	form->addRow("Vorlage:", titleTemplate_);
-	form->addRow(hint("Platzhalter: <code>{game}</code> = Twitch-Kategorie, <code>{scene}</code> = Situation im "
-			  "Spiel (z. B. „Bosskampf gegen den Enderdrachen“), <code>{keywords}</code> = Stichwörter aus "
-			  "deiner Stimme. Leere Platzhalter verschwinden samt Trennzeichen davor. Die Vorlage springt "
-			  "auch ein, wenn der KI-Titel fehlschlägt."));
+	form->addRow(Tr("Settings.Template"), titleTemplate_);
+	form->addRow(hint(Tr("Settings.PlaceholdersCodeGameCodeTwitch")));
 	outer->addWidget(how);
 
 	// -- Feste Vorgaben
-	auto *fixed = new QGroupBox("Feste Vorgaben – gelten immer, egal welches Modell");
+	auto *fixed = new QGroupBox(Tr("Settings.FixedPartsAlwaysApplyWhatever"));
 	auto *fixedForm = new QFormLayout(fixed);
 	titlePrefix_ = new QLineEdit(qstr(settings_.titlePrefix));
-	titlePrefix_->setPlaceholderText("z. B. [DE]");
-	fixedForm->addRow("Immer vorne:", titlePrefix_);
+	titlePrefix_->setPlaceholderText(Tr("Settings.EGEN"));
+	fixedForm->addRow(Tr("Settings.AlwaysAtStart"), titlePrefix_);
 	titleSuffix_ = new QLineEdit(qstr(settings_.titleSuffix));
-	titleSuffix_->setPlaceholderText("z. B. | !discord !socials");
-	fixedForm->addRow("Immer hinten:", titleSuffix_);
-	fixedForm->addRow(hint("Das Plugin setzt diese Teile selbst an jeden Titel – die KI kann sie nicht vergessen "
-			       "oder umschreiben. Zu lange Titel kürzt es in der Mitte."));
+	titleSuffix_->setPlaceholderText(Tr("Settings.EGDiscordSocials"));
+	fixedForm->addRow(Tr("Settings.AlwaysAtEnd"), titleSuffix_);
+	fixedForm->addRow(hint(Tr("Settings.PluginAddsThesePartsTo")));
 	titlePreview_ = hint(QString());
 	titlePreview_->setTextInteractionFlags(Qt::TextSelectableByMouse);
-	fixedForm->addRow("Vorschau:", titlePreview_);
+	fixedForm->addRow(Tr("Settings.Preview"), titlePreview_);
 	outer->addWidget(fixed);
 
 	// -- Spielfortschritt
-	auto *progress = new QGroupBox("Spielfortschritt");
+	auto *progress = new QGroupBox(Tr("Settings.GameProgress"));
 	auto *progressForm = new QFormLayout(progress);
-	progressTitles_ = new QCheckBox("Titel auch anpassen, wenn sich im Spiel etwas Wichtiges ändert");
+	progressTitles_ = new QCheckBox(Tr("Settings.AlsoAdjustTitleWhenSomething"));
 	progressTitles_->setChecked(settings_.progressTitles);
-	progressTitles_->setToolTip("Neues Level, neue Welt, Bosskampf, anderer Spielmodus … Die KI muss den neuen "
-				    "Abschnitt so oft hintereinander erkennen, wie unter „Erkennung → Bestätigungen“ "
-				    "eingestellt.");
+	progressTitles_->setToolTip(Tr("Settings.NewLevelNewWorldBoss"));
 	progressForm->addRow(progressTitles_);
 	progressLevel_ = new QComboBox;
-	progressLevel_->addItem("Selten – nur große Abschnitte (neues Level, Bosskampf, neue Welt)",
-				QStringLiteral("big"));
-	progressLevel_->addItem("Normal – auch neue Gebiete, Runden, Siege und Niederlagen", QStringLiteral("normal"));
-	progressLevel_->addItem("Häufig – bei jeder deutlich anderen Situation", QStringLiteral("often"));
+	progressLevel_->addItem(Tr("Settings.RarelyOnlyBigSectionsNew"), QStringLiteral("big"));
+	progressLevel_->addItem(Tr("Settings.NormalAlsoNewAreasRounds"), QStringLiteral("normal"));
+	progressLevel_->addItem(Tr("Settings.OftenOnEveryClearlyDifferent"), QStringLiteral("often"));
 	progressLevel_->setCurrentIndex(std::max(0, progressLevel_->findData(qstr(settings_.progressLevel))));
-	progressForm->addRow("Wie oft:", progressLevel_);
+	progressForm->addRow(Tr("Settings.HowOften"), progressLevel_);
 	progressMinutes_ = new QSpinBox;
 	progressMinutes_->setRange(2, 240);
 	progressMinutes_->setSingleStep(1);
 	progressMinutes_->setSuffix(" min");
 	progressMinutes_->setValue(settings_.progressMinutes);
-	progressForm->addRow("Frühestens alle:", progressMinutes_);
+	progressForm->addRow(Tr("Settings.AtMostEvery"), progressMinutes_);
 	outer->addWidget(progress);
 	outer->addStretch(1);
 
@@ -462,12 +448,13 @@ void SettingsDialog::updateTitlePreview()
 	example.titleEmojis = titleEmojis_->isChecked();
 	const auto mode = static_cast<TitleMode>(titleMode_->currentData().toInt());
 	if (mode == TitleMode::Keep) {
-		titlePreview_->setText("<i>Der Titel bleibt, wie er ist.</i>");
+		titlePreview_->setText(Tr("Settings.ITitleStaysAsIt"));
 		return;
 	}
-	const std::string core = mode == TitleMode::Ai ? std::string("‹Titel von der KI›")
-						       : fillTemplate(titleTemplate_->text().toStdString(), "Minecraft",
-								      "Bosskampf gegen den Enderdrachen", {"Hardcore"});
+	const std::string core = mode == TitleMode::Ai
+					 ? std::string(Tr("Settings.TitleFromAI"))
+					 : fillTemplate(titleTemplate_->text().toStdString(), "Minecraft",
+							Tr("Settings.BossFightAgainstEnderDragon"), {"Hardcore"});
 	titlePreview_->setText(qstr(composeTitle(example, core)).toHtmlEscaped());
 }
 
@@ -475,35 +462,21 @@ QWidget *SettingsDialog::createYouTubeTab()
 {
 	auto *page = new QWidget;
 	auto *form = formPage(page);
-	form->addRow(hint(
-		"Das Plugin ändert bei YouTube den <b>Titel</b> deines Livestreams (eine Spiel-Kategorie wie bei Twitch "
-		"bietet die YouTube-Schnittstelle nicht an). Dafür brauchst du einmalig ein eigenes, kostenloses "
-		"Google-Cloud-Projekt:<ol>"
-		"<li><a href=\"https://console.cloud.google.com/projectcreate\">Projekt anlegen</a> (Name egal)</li>"
-		"<li><a href=\"https://console.cloud.google.com/apis/library/youtube.googleapis.com\">YouTube Data API v3</a> "
-		"aktivieren</li>"
-		"<li><a href=\"https://console.cloud.google.com/auth/overview\">OAuth-Zustimmungsbildschirm</a> einrichten: "
-		"Typ <b>Extern</b>, und unter <b>Zielgruppe → Testnutzer</b> dein eigenes Google-Konto eintragen</li>"
-		"<li><a href=\"https://console.cloud.google.com/auth/clients\">Client erstellen</a>: Typ <b>Fernseher "
-		"und Geräte mit begrenzter Eingabe</b></li>"
-		"<li>Client-ID und Clientschlüssel unten eintragen, speichern und auf <b>Mit YouTube verbinden</b> "
-		"klicken</li></ol>"
-		"Google zeigt beim Verbinden einen Hinweis „App nicht überprüft“ – das ist bei eigenen Projekten normal "
-		"(<b>Weiter</b>). Das Tageslimit deines Projekts reicht für rund 150 Titeländerungen."));
+	form->addRow(hint(Tr("Settings.OnYouTubePluginChangesB")));
 
 	youtubeClientId_ = new QLineEdit(qstr(settings_.youtubeClientId));
 	youtubeClientId_->setPlaceholderText("….apps.googleusercontent.com");
-	form->addRow("Client-ID:", youtubeClientId_);
+	form->addRow(Tr("Settings.ClientID"), youtubeClientId_);
 	youtubeClientSecret_ = new QLineEdit(qstr(settings_.youtubeClientSecret));
 	youtubeClientSecret_->setEchoMode(QLineEdit::Password);
-	form->addRow("Clientschlüssel:", youtubeClientSecret_);
+	form->addRow(Tr("Settings.ClientSecret"), youtubeClientSecret_);
 
 	youtubeStatus_ = new QLabel;
 	youtubeButton_ = new QPushButton;
 	auto *row = new QHBoxLayout;
 	row->addWidget(youtubeStatus_, 1);
 	row->addWidget(youtubeButton_);
-	form->addRow("Konto:", row);
+	form->addRow(Tr("Settings.Account"), row);
 	connect(youtubeButton_, &QPushButton::clicked, this, [this] {
 		if (!switcher_)
 			return;
@@ -518,8 +491,7 @@ QWidget *SettingsDialog::createYouTubeTab()
 			changed.youtubeClientId = text(youtubeClientId_);
 			changed.youtubeClientSecret = text(youtubeClientSecret_);
 			if (changed.youtubeClientId.empty() || changed.youtubeClientSecret.empty()) {
-				QMessageBox::information(this, windowTitle(),
-							 "Bitte zuerst Client-ID und Clientschlüssel eintragen.");
+				QMessageBox::information(this, windowTitle(), Tr("Settings.PleaseEnterClientIDAnd"));
 				return;
 			}
 			settings_.youtubeClientId = changed.youtubeClientId;
@@ -538,15 +510,15 @@ void SettingsDialog::refreshYouTube()
 	const StatusSnapshot s = switcher_->status();
 	if (s.youtubeLoginRunning) {
 		youtubeStatus_->setText(s.loginService == "YouTube" && !s.deviceCode.isEmpty()
-						? "Im Browser den Code " + s.deviceCode + " bestätigen …"
-						: QString("Anmeldung läuft …"));
-		youtubeButton_->setText("Abbrechen");
+						? QString(Tr("Settings.ConfirmCodeInBrowserDots")).arg(s.deviceCode)
+						: QString(Tr("Settings.SigningIn")));
+		youtubeButton_->setText(Tr("Settings.Cancel"));
 	} else if (s.youtubeConnected) {
-		youtubeStatus_->setText("Verbunden: " + s.youtubeChannel);
-		youtubeButton_->setText("Trennen");
+		youtubeStatus_->setText(Tr("Settings.Connected") + s.youtubeChannel);
+		youtubeButton_->setText(Tr("Settings.Disconnect"));
 	} else {
-		youtubeStatus_->setText("Nicht verbunden");
-		youtubeButton_->setText("Mit YouTube verbinden");
+		youtubeStatus_->setText(Tr("Settings.NotConnected"));
+		youtubeButton_->setText(Tr("Settings.ConnectWithYouTube"));
 	}
 }
 
@@ -557,52 +529,44 @@ QWidget *SettingsDialog::createVoiceTab()
 
 	std::string reason;
 	const bool supported = voice::supported(&reason);
-	voiceEnabled_ = new QCheckBox("Stimme mithören und Stichwörter für den Titel nutzen");
+	voiceEnabled_ = new QCheckBox(Tr("Settings.ListenToYourVoiceAnd"));
 	voiceEnabled_->setChecked(settings_.voiceEnabled && supported);
 	voiceEnabled_->setEnabled(supported);
 	form->addRow(voiceEnabled_);
-	form->addRow(hint(
-		supported
-			? "Die Spracherkennung läuft komplett auf deinem PC (whisper.cpp). Nichts wird "
-			  "aufgenommen oder gespeichert: Das Plugin hält nur die letzten zwei Minuten Audio im "
-			  "Arbeitsspeicher und merkt sich den erkannten Text der letzten drei Minuten. Wird ein neuer "
-			  "Titel geschrieben, geht dieser Text an die gewählte KI – bei Ollama bleibt also alles "
-			  "lokal. Auf die Spielerkennung hat das Gesagte keinen Einfluss."
-			: "<b>" + qstr(reason) + "</b>"));
+	form->addRow(hint(supported ? Tr("Settings.SpeechRecognitionRunsEntirelyOn") : "<b>" + qstr(reason) + "</b>"));
 
 	voiceSource_ = new QComboBox;
-	voiceSource_->addItem("Automatisch (erstes Mikrofon)", QString());
+	voiceSource_->addItem(Tr("Settings.AutomaticFirstMicrophone"), QString());
 	for (const voice::AudioSource &source : voice::audioSources()) {
 		QString label = qstr(source.name);
 		if (!source.device.empty())
 			label += " – " + qstr(source.device);
 		if (source.global)
-			label += " (OBS-Audiogerät)";
+			label += Tr("Settings.OBSAudioDevice");
 		voiceSource_->addItem(label, qstr(source.name));
 	}
 	if (!settings_.voiceSource.empty() && voiceSource_->findData(qstr(settings_.voiceSource)) < 0) {
 		// Auch andere Audioquellen sind erlaubt (z. B. ein eigener Mikrofon-Filter-Mix)
 		obs_source_t *source = obs_get_source_by_name(settings_.voiceSource.c_str());
-		voiceSource_->addItem(qstr(settings_.voiceSource) + (source ? "" : " (nicht gefunden)"),
+		voiceSource_->addItem(qstr(settings_.voiceSource) + (source ? "" : Tr("Settings.NotFound")),
 				      qstr(settings_.voiceSource));
 		obs_source_release(source);
 	}
 	voiceSource_->setCurrentIndex(std::max(0, voiceSource_->findData(qstr(settings_.voiceSource))));
-	form->addRow("Mikrofon:", voiceSource_);
+	form->addRow(Tr("Settings.Microphone"), voiceSource_);
 
 	voiceModel_ = new QComboBox;
 	for (const VoiceModelInfo &model : voiceModels())
-		voiceModel_->addItem(model.label, QString(model.id));
+		voiceModel_->addItem(Tr(model.label), QString(model.id));
 	voiceModel_->setCurrentIndex(std::max(0, voiceModel_->findData(qstr(settings_.voiceModel))));
-	form->addRow("Sprachmodell:", voiceModel_);
-	form->addRow(hint("Wird beim ersten Einschalten einmalig von huggingface.co heruntergeladen. Die Erkennung "
-			  "läuft auf dem Prozessor, nur während einer Prüfung und dauert dann ein paar Sekunden."));
+	form->addRow(Tr("Settings.SpeechModel"), voiceModel_);
+	form->addRow(hint(Tr("Settings.DownloadedOnceFromHuggingfaceCo")));
 
 	voiceStatus_ = hint(QString());
-	form->addRow("Status:", voiceStatus_);
+	form->addRow(Tr("Settings.Status"), voiceStatus_);
 	voiceText_ = hint(QString());
 	voiceText_->setTextFormat(Qt::PlainText);
-	form->addRow("Zuletzt verstanden:", voiceText_);
+	form->addRow(Tr("Settings.LastUnderstood"), voiceText_);
 
 	auto updateEnabled = [this] {
 		voiceSource_->setEnabled(voiceEnabled_->isChecked());
@@ -624,18 +588,11 @@ QWidget *SettingsDialog::createRulesTab()
 {
 	auto *page = new QWidget;
 	auto *layout = new QVBoxLayout(page);
-	layout->addWidget(
-		hint("Nimmt OBS eines dieser Programme auf (Spiel- oder Fensteraufnahme) oder ist es das "
-		     "aktive Fenster, stellt das Plugin sofort und ohne KI auf die Kategorie um – 100 % "
-		     "sicher und kostenlos.<br><b>Emulatoren:</b> Trag dasselbe Programm mehrmals ein, jeweils "
-		     "mit einem Teil des Fenstertitels (z. B. <code>Dolphin.exe</code> + „Mario Kart“ und "
-		     "<code>Dolphin.exe</code> + „Sunshine“). Zeilen mit Fenstertitel gehen vor.<br>"
-		     "<b>Eigener Titel</b> (optional, Platzhalter wie in der Vorlage) und <b>Tags</b> gelten nur "
-		     "für dieses Spiel."));
+	layout->addWidget(hint(Tr("Settings.IfOBSCapturesOneOf")));
 
 	rules_ = new QTableWidget(0, 5);
-	rules_->setHorizontalHeaderLabels(
-		{"Programm (.exe)", "Fenstertitel enthält", "Twitch-Kategorie", "Eigener Titel", "Tags"});
+	rules_->setHorizontalHeaderLabels({Tr("Settings.ApplicationExe"), Tr("Settings.WindowTitleContains"),
+					   Tr("Settings.TwitchCategory"), Tr("Settings.OwnTitle"), "Tags"});
 	rules_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
 	rules_->horizontalHeader()->setStretchLastSection(true);
 	rules_->setColumnWidth(0, 120);
@@ -644,22 +601,18 @@ QWidget *SettingsDialog::createRulesTab()
 	rules_->setColumnWidth(3, 160);
 	rules_->verticalHeader()->setVisible(false);
 	rules_->setSelectionBehavior(QAbstractItemView::SelectRows);
-	rules_->horizontalHeaderItem(1)->setToolTip("Leer = gilt für jedes Fenster des Programms. Bei Emulatoren "
-						    "ein Teil des Spielnamens aus dem Fenstertitel.");
-	rules_->horizontalHeaderItem(3)->setToolTip("Leer = Titel wie unter „Titel“ eingestellt. Platzhalter: "
-						    "{game}, {scene}, {keywords}");
-	rules_->horizontalHeaderItem(4)->setToolTip("Twitch-Tags für dieses Spiel, durch Komma getrennt, z. B. "
-						    "Speedrun, Nintendo");
+	rules_->horizontalHeaderItem(1)->setToolTip(Tr("Settings.EmptyAppliesToEveryWindow"));
+	rules_->horizontalHeaderItem(3)->setToolTip(Tr("Settings.EmptyTitleAsSetUnder"));
+	rules_->horizontalHeaderItem(4)->setToolTip(Tr("Settings.TwitchTagsForThisGame"));
 	for (const GameRule &rule : settings_.rules)
 		addRule(rule);
 	layout->addWidget(rules_, 1);
 
 	auto *buttons = new QHBoxLayout;
-	auto *add = new QPushButton("Hinzufügen");
-	auto *fromCapture = new QPushButton("Aktuelle Aufnahmen übernehmen");
-	fromCapture->setToolTip("Trägt die Programme ein, die OBS gerade aufnimmt. Bei Emulatoren wird der Spielname "
-				"aus dem Fenstertitel vorgeschlagen – bitte prüfen.");
-	auto *remove = new QPushButton("Entfernen");
+	auto *add = new QPushButton(Tr("Settings.Add"));
+	auto *fromCapture = new QPushButton(Tr("Settings.AddCurrentCaptures"));
+	fromCapture->setToolTip(Tr("Settings.AddsApplicationsOBSIsCurrently"));
+	auto *remove = new QPushButton(Tr("Settings.Remove"));
 	buttons->addWidget(add);
 	buttons->addWidget(fromCapture);
 	buttons->addStretch(1);
@@ -719,7 +672,7 @@ void SettingsDialog::showProvider(int index)
 	const ProviderInfo &info = providerInfo(provider);
 	const ProviderSettings &values = settings_.providers[index];
 
-	providerHelp_->setText(info.help);
+	providerHelp_->setText(Tr(info.help));
 	apiKey_->setText(qstr(values.apiKey));
 	apiKey_->setEnabled(!isLocalProvider(provider));
 	apiKey_->setPlaceholderText(info.needsKey ? "erforderlich" : "optional");
@@ -731,7 +684,7 @@ void SettingsDialog::showProvider(int index)
 	// Cloudflare: Vorlage eintragen, damit nur noch die Account-ID ersetzt werden muss
 	baseUrl_->setText(
 		qstr(values.baseUrl.empty() && provider == Provider::Cloudflare ? info.baseUrl : values.baseUrl));
-	baseUrl_->setPlaceholderText(*info.baseUrl ? info.baseUrl : "z. B. http://localhost:1234/v1");
+	baseUrl_->setPlaceholderText(*info.baseUrl ? info.baseUrl : Tr("Settings.EGHttpLocalhost1234"));
 	modelStatus_->clear();
 }
 
@@ -755,7 +708,7 @@ void SettingsDialog::loadModels()
 	const AiTarget target = aiTargetFrom(probe);
 
 	loadModels_->setEnabled(false);
-	modelStatus_->setText("Frage Modelle ab …");
+	modelStatus_->setText(Tr("Settings.FetchingModels"));
 	QPointer<SettingsDialog> self(this);
 	std::thread([self, target] {
 		std::vector<std::string> models;
@@ -789,9 +742,8 @@ void SettingsDialog::setModels(const std::vector<std::string> &models, const QSt
 			box->addItem(qstr(model));
 		box->setEditText(current);
 	}
-	modelStatus_->setText(models.empty()
-				      ? "Verbindung klappt, aber der Anbieter meldet keine passenden Modelle."
-				      : QString("Verbindung klappt – %1 Modelle zur Auswahl.").arg(models.size()));
+	modelStatus_->setText(models.empty() ? Tr("Settings.ConnectionWorksButProviderReports")
+					     : QString(Tr("Settings.ConnectionWorks1ModelsTo")).arg(models.size()));
 }
 
 void SettingsDialog::refreshTwitch()
@@ -800,15 +752,15 @@ void SettingsDialog::refreshTwitch()
 		return;
 	const StatusSnapshot s = switcher_->status();
 	if (s.loginRunning) {
-		twitchStatus_->setText(s.deviceCode.isEmpty() ? "Anmeldung läuft …"
-							      : "Code im Browser bestätigen: " + s.deviceCode);
-		twitchButton_->setText("Abbrechen");
+		twitchStatus_->setText(s.deviceCode.isEmpty() ? Tr("Settings.SigningIn")
+							      : Tr("Settings.ConfirmCodeInYourBrowser") + s.deviceCode);
+		twitchButton_->setText(Tr("Settings.Cancel"));
 	} else if (s.twitchConnected) {
-		twitchStatus_->setText("Verbunden als " + s.twitchLogin);
-		twitchButton_->setText("Trennen");
+		twitchStatus_->setText(Tr("Settings.ConnectedAs") + s.twitchLogin);
+		twitchButton_->setText(Tr("Settings.Disconnect"));
 	} else {
-		twitchStatus_->setText("Nicht verbunden");
-		twitchButton_->setText("Mit Twitch verbinden");
+		twitchStatus_->setText(Tr("Settings.NotConnected"));
+		twitchButton_->setText(Tr("Settings.ConnectWithTwitch"));
 	}
 }
 
@@ -872,16 +824,22 @@ void SettingsDialog::save()
 
 	const ProviderInfo &info = providerInfo(settings_.provider);
 	if (info.needsKey && settings_.activeProvider().apiKey.empty()) {
-		QMessageBox::warning(this, windowTitle(),
-				     QString("Für „%1“ brauchst du einen API-Key.").arg(info.label));
+		QMessageBox::warning(this, windowTitle(), QString(Tr("Settings.1NeedsAPIKey")).arg(Tr(info.label)));
 		return;
 	}
 	if (settings_.activeBaseUrl().empty()) {
-		QMessageBox::warning(this, windowTitle(), "Bitte eine Server-URL eintragen.");
+		QMessageBox::warning(this, windowTitle(), Tr("Settings.PleaseEnterServerURL"));
 		return;
 	}
 
+	const std::string uiLanguage = uiLanguage_->currentData().toString().toStdString();
+	const bool languageChanged = uiLanguage != settings_.uiLanguage;
+	settings_.uiLanguage = uiLanguage;
 	switcher_->setSettings(settings_);
+	if (languageChanged) {
+		i18nInit(uiLanguage);
+		QMessageBox::information(this, windowTitle(), Tr("Settings.UiLanguageRestart"));
+	}
 	accept();
 }
 

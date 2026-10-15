@@ -56,6 +56,8 @@ target_sources(
     src/plugin-main.cpp
     src/settings.cpp
     src/settings.hpp
+    src/i18n.cpp
+    src/i18n.hpp
     src/http.cpp
     src/http.hpp
     src/frame-grabber.cpp

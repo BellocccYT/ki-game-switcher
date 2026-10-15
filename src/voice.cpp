@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "voice.hpp"
+#include "i18n.hpp"
 
 #include "http.hpp"
 
@@ -78,6 +79,7 @@ std::mutex g_configMutex;
 bool g_enabled = false;
 std::string g_sourceSetting;
 std::string g_modelId = "base";
+std::string g_language = "de"; // Sprache, in der gesprochen wird (folgt der Titelsprache)
 obs_source_t *g_source = nullptr;
 std::string g_sourceName;
 std::string g_sourceDevice;
@@ -383,19 +385,19 @@ bool supported(std::string *reason)
 {
 #ifndef KGS_VOICE
 	if (reason)
-		*reason = "Auf diesem System noch nicht verfügbar";
+		*reason = Tr("Voice.NotAvailableOnThisSystem");
 	return false;
 #else
 #if defined(_WIN32) && (defined(_M_X64) || defined(__x86_64__))
 	if (!IsProcessorFeaturePresent(PF_AVX2_INSTRUCTIONS_AVAILABLE)) {
 		if (reason)
-			*reason = "Der Prozessor unterstützt kein AVX2 – Spracherkennung nicht möglich";
+			*reason = Tr("Voice.YourCPUDoesntSupportAVX2");
 		return false;
 	}
 #elif defined(__x86_64__)
 	if (!__builtin_cpu_supports("avx2")) {
 		if (reason)
-			*reason = "Der Prozessor unterstützt kein AVX2 – Spracherkennung nicht möglich";
+			*reason = Tr("Voice.YourCPUDoesntSupportAVX2");
 		return false;
 	}
 #endif
@@ -410,6 +412,7 @@ void configure(const Settings &settings)
 	g_enabled = enabled;
 	g_sourceSetting = settings.voiceSource;
 	g_modelId = voiceModel(settings.voiceModel).id;
+	g_language = settings.titleLanguage == "en" ? "en" : "de";
 	if (!enabled) {
 		detachLocked();
 		return;
@@ -467,14 +470,20 @@ std::string listen(const std::string &hint)
 			std::error_code ignored;
 			std::filesystem::remove(std::filesystem::u8path(path), ignored);
 			std::lock_guard config(g_configMutex);
-			g_downloadError = "Sprachmodell beschädigt – wird neu geladen";
+			g_downloadError = Tr("Voice.SpeechModelDamagedDownloadingIt");
 			return recentText().toStdString();
 		}
 	}
 
-	const std::string prompt = hint.empty() ? std::string() : "Spiel: " + hint + ".";
+	std::string language;
+	{
+		std::lock_guard config(g_configMutex);
+		language = g_language;
+	}
+	const std::string prompt = hint.empty() ? std::string()
+						: (language == "en" ? "Game: " : "Spiel: ") + hint + ".";
 	whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-	params.language = "de";
+	params.language = language.c_str();
 	params.translate = false;
 	params.n_threads = std::clamp(static_cast<int>(std::thread::hardware_concurrency()) / 2, 1, 4);
 	params.no_context = true;
@@ -518,18 +527,18 @@ std::string status()
 		return reason;
 	std::lock_guard lock(g_configMutex);
 	if (!g_enabled)
-		return "Aus";
+		return Tr("Voice.Off");
 	if (g_downloading) {
 		const int percent = g_progress;
-		return percent >= 0 ? "Sprachmodell wird geladen … " + std::to_string(percent) + " %"
-				    : std::string("Sprachmodell wird geladen …");
+		return percent >= 0 ? Trf("Voice.DownloadingPercent", {std::to_string(percent)})
+				    : std::string(Tr("Voice.DownloadingSpeechModel"));
 	}
 	if (!g_downloadError.empty())
-		return "Sprachmodell nicht geladen: " + g_downloadError;
+		return Tr("Voice.SpeechModelNotLoaded") + g_downloadError;
 	if (!g_source)
-		return g_sourceMissing ? "Kein Mikrofon gefunden – Quelle in den Einstellungen wählen"
-				       : "Wartet auf das Mikrofon";
-	return "Hört zu: " + g_sourceName + (g_sourceDevice.empty() ? std::string() : " (" + g_sourceDevice + ")");
+		return g_sourceMissing ? Tr("Voice.NoMicrophoneFoundChooseSource") : Tr("Voice.WaitingForMicrophone");
+	return Tr("Voice.Listening") + g_sourceName +
+	       (g_sourceDevice.empty() ? std::string() : " (" + g_sourceDevice + ")");
 }
 
 std::string lastText()

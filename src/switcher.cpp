@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "switcher.hpp"
+#include "i18n.hpp"
 
 #include "ai-client.hpp"
 #include "capture-info.hpp"
@@ -187,7 +188,7 @@ void Switcher::setEnabled(bool enabled)
 	Settings changed = settings();
 	changed.enabled = enabled;
 	setSettings(changed);
-	addHistory(enabled ? "Automatik fortgesetzt" : "Automatik pausiert");
+	addHistory(enabled ? Tr("Status.AutomationResumed") : Tr("Status.AutomationPaused"));
 }
 
 void Switcher::setStreaming(bool streaming)
@@ -234,8 +235,10 @@ void Switcher::correctCategory(const std::string &category, const std::string &r
 		rule.category = category;
 		rules.push_back(rule);
 		setSettings(changed);
-		addHistory("Zuordnung gemerkt: " + qstr(rememberExecutable) +
-			   (rememberWindowTitle.empty() ? QString() : " („" + qstr(rememberWindowTitle) + "“)") +
+		addHistory(Tr("Status.RuleRemembered") + qstr(rememberExecutable) +
+			   (rememberWindowTitle.empty()
+				    ? QString()
+				    : QString(Tr("Status.WindowTitleSuffix")).arg(qstr(rememberWindowTitle))) +
 			   " → " + qstr(category));
 	}
 	{
@@ -393,7 +396,7 @@ void Switcher::run()
 			else if (runCheck)
 				check(cfg, request == Request::Test, request == Request::Apply);
 		} catch (const std::exception &e) {
-			setNotice(QString("Fehler: ") + e.what(), true);
+			setNotice(QString(Tr("Status.Error")) + e.what(), true);
 		}
 		lock.lock();
 	}
@@ -411,7 +414,7 @@ void Switcher::pollTwitchLive()
 		}
 	} catch (const std::exception &e) {
 		if (!livePollFailed_)
-			addHistory(QString("Twitch-Livestatus nicht abrufbar: %1").arg(e.what()));
+			addHistory(QString(Tr("Status.TwitchLiveStatusUnavailable1")).arg(e.what()));
 		failed = true;
 	}
 	try {
@@ -421,7 +424,7 @@ void Switcher::pollTwitchLive()
 		}
 	} catch (const std::exception &e) {
 		if (!livePollFailed_)
-			addHistory(QString("YouTube-Livestatus nicht abrufbar: %1").arg(e.what()));
+			addHistory(QString(Tr("Status.YouTubeLiveStatusUnavailable1")).arg(e.what()));
 		failed = true;
 	}
 	livePollFailed_ = failed;
@@ -442,7 +445,7 @@ void Switcher::pollTwitchLive()
 		return;
 	if (live)
 		refreshChannel_ = true;
-	addHistory(live ? source + " meldet: Du bist live – Erkennung läuft" : QString("Stream beendet"));
+	addHistory(live ? QString(Tr("Status.LiveDetected")).arg(source) : QString(Tr("Status.StreamEnded")));
 	emit statusChanged();
 }
 
@@ -467,7 +470,7 @@ void Switcher::refreshChannel()
 void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 {
 	if (!dryRun && !twitch_.connected() && !youtube_.connected()) {
-		setNotice("Weder mit Twitch noch mit YouTube verbunden – Erkennung pausiert", true);
+		setNotice(Tr("Status.ConnectedToNeitherTwitchNor"), true);
 		return;
 	}
 
@@ -490,7 +493,7 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		emit previewChanged(frame);
 	const bool haveFrame = !frame.isNull() && !isBlack(frame);
 	if (!rule && !haveFrame) {
-		setNotice("Kein Bild (Quelle leer oder schwarz) – übersprungen", true);
+		setNotice(Tr("Status.NoImageSourceEmptyOr"), true);
 		return;
 	}
 
@@ -522,13 +525,13 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		} catch (const std::exception &e) {
 			if (!rule)
 				throw;
-			addHistory(QString("Situation nicht erkannt: %1").arg(e.what()));
+			addHistory(QString(Tr("Status.SituationNotDetected1")).arg(e.what()));
 		}
 		const double seconds =
 			std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
 		details = QString(" · %1 s").arg(QString::number(seconds, 'f', 1).replace('.', ','));
 		if (haveDetection && detection.model != cfg.activeModel())
-			details += " · Ersatzmodell " + qstr(detection.model);
+			details += Tr("Status.FallbackModel") + qstr(detection.model);
 	}
 	const int percent = haveDetection ? qRound(detection.confidence * 100) : 0;
 	const bool sure = haveDetection && percent >= cfg.minConfidence;
@@ -544,20 +547,23 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		const QString label = qstr(rule->category);
 		{
 			std::lock_guard lock(mutex_);
-			detection_ = label + " (Zuordnung)";
-			detectionReason_ = "Feste Zuordnung für " + qstr(rule->executable);
+			detection_ = QString(Tr("Status.LabelRule")).arg(label);
+			detectionReason_ = QString(Tr("Status.FixedRuleFor")).arg(qstr(rule->executable));
 			detectionTime_ = QTime::currentTime().toString("HH:mm:ss");
 			scene_ = sure ? qstr(detection.scene) : QString();
 		}
 		setNotice({}, false);
 		emit statusChanged();
 		if (dryRun || label != lastDetectionLabel_)
-			addHistory((dryRun ? "Test: " : "Erkannt: ") + label + " · Zuordnung " +
-				   qstr(rule->executable) +
-				   (rule->windowTitle.empty() ? QString() : " („" + qstr(rule->windowTitle) + "“)"));
+			addHistory(QString(Tr(dryRun ? "Status.TestRule" : "Status.DetectedRule"))
+					   .arg(label, qstr(rule->executable) +
+							       (rule->windowTitle.empty()
+									? QString()
+									: QString(Tr("Status.WindowTitleSuffix"))
+										  .arg(qstr(rule->windowTitle)))));
 		lastDetectionLabel_ = label;
 	} else {
-		const QString label = detection.isGame ? qstr(detection.category) : QStringLiteral("kein Spiel");
+		const QString label = detection.isGame ? qstr(detection.category) : QString(Tr("Status.NoGame"));
 		const QString labelWithConfidence = QString("%1 (%2 %)").arg(label).arg(percent);
 		{
 			std::lock_guard lock(mutex_);
@@ -569,7 +575,8 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		setNotice({}, false);
 		emit statusChanged();
 		if (dryRun || label != lastDetectionLabel_)
-			addHistory((dryRun ? "Test: " : "Erkannt: ") + labelWithConfidence + details);
+			addHistory(QString(Tr(dryRun ? "Status.Test" : "Status.Detected"))
+					   .arg(labelWithConfidence + details));
 		lastDetectionLabel_ = label;
 	}
 
@@ -586,7 +593,8 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		for (const std::string &keyword :
 		     speechKeywords(cfg, haveDetection && detection.isGame ? detection.category : std::string()))
 			words << qstr(keyword);
-		addHistory("Stichwörter aus der Stimme: " + (words.isEmpty() ? QStringLiteral("–") : words.join(", ")));
+		addHistory(Tr("Status.KeywordsFromYourVoice") +
+			   (words.isEmpty() ? QStringLiteral("–") : words.join(", ")));
 	}
 
 	if (dryRun) {
@@ -616,7 +624,7 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 	if (!category && !alternative.empty() && !sameName(alternative, target))
 		category = resolveCategory(alternative);
 	if (!category) {
-		addHistory("Keine Twitch-Kategorie für „" + qstr(target) + "“ gefunden");
+		addHistory(QString(Tr("Status.NoCategoryFound")).arg(qstr(target)));
 		resetCandidate();
 		return;
 	}
@@ -624,7 +632,7 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 		refreshChannel();
 	if (sameName(category->name, *knownCategory_)) {
 		if (immediate)
-			addHistory("Kategorie ist bereits „" + qstr(category->name) + "“");
+			addHistory(QString(Tr("Status.CategoryAlready")).arg(qstr(category->name)));
 		resetCandidate();
 		lastBlocked_.clear();
 		if (haveDetection && sure)
@@ -644,7 +652,7 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 	// Gesperrte Kategorien: darauf stellt die KI nie um (feste Zuordnungen schon)
 	if (!certain && isBlocked(cfg, category->name)) {
 		if (lastBlocked_ != category->name)
-			addHistory("„" + qstr(category->name) + "“ ist gesperrt – kein Wechsel");
+			addHistory(QString(Tr("Status.CategoryBlocked")).arg(qstr(category->name)));
 		lastBlocked_ = category->name;
 		resetCandidate();
 		return;
@@ -676,7 +684,7 @@ void Switcher::check(const Settings &cfg, bool dryRun, bool immediate)
 	}
 	const int needed = (immediate || certain) ? 1 : cfg.confirmations;
 	if (candidateHits_ < needed) {
-		addHistory(QString("Wechsel zu „%1“ vorgemerkt (%2/%3)")
+		addHistory(QString(Tr("Status.SwitchTo1Queued2"))
 				   .arg(qstr(category->name))
 				   .arg(candidateHits_)
 				   .arg(needed));
@@ -726,7 +734,7 @@ std::optional<std::string> Switcher::verifyWithSteam(const Settings &cfg, const 
 			verification = verifyGame(aiTargetFrom(cfg), image, encodeImage(referenceSheet(*reference)),
 						  reference->name);
 		} catch (const std::exception &e) {
-			addHistory(QString("Steam-Abgleich übersprungen: %1").arg(e.what()));
+			addHistory(QString(Tr("Status.SteamCheckSkipped1")).arg(e.what()));
 			return std::nullopt;
 		}
 		const QString seconds =
@@ -734,9 +742,9 @@ std::optional<std::string> Switcher::verifyWithSteam(const Settings &cfg, const 
 				std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count(), 'f',
 				1)
 				.replace('.', ',');
-		addHistory(
-			QString("Steam-Abgleich „%1“: %2 · %3 s")
-				.arg(qstr(reference->name), verification.sameGame ? "passt" : "passt nicht", seconds));
+		addHistory(QString(Tr("Status.SteamCheck123"))
+				   .arg(qstr(reference->name),
+					verification.sameGame ? Tr("Status.Match") : Tr("Status.NoMatch"), seconds));
 		if (verification.sameGame) {
 			result = names[i];
 			break;
@@ -744,7 +752,7 @@ std::optional<std::string> Switcher::verifyWithSteam(const Settings &cfg, const 
 	}
 
 	if (!result) {
-		addHistory("Kein Wechsel – das Bild passt zu keinem der vermuteten Spiele");
+		addHistory(Tr("Status.NoSwitchImageMatchesNone"));
 		result = std::string();
 	}
 	verdicts_[lowerKey(main)] = {*result, now + (result->empty() ? kRejectionValid : kVerdictValid)};
@@ -772,7 +780,7 @@ void Switcher::maybeProgressTitle(const Settings &cfg, const Detection &detectio
 	// „Häufig“ reagiert sofort, sonst wie beim Spielwechsel erst nach Bestätigungen
 	const int needed = cfg.progressLevel == "often" ? 1 : cfg.confirmations;
 	if (progressHits_ < needed) {
-		addHistory(QString("Neuer Abschnitt „%1“ vorgemerkt (%2/%3)")
+		addHistory(QString(Tr("Status.NewSection1Queued2"))
 				   .arg(qstr(detection.scene))
 				   .arg(progressHits_)
 				   .arg(needed));
@@ -784,7 +792,7 @@ void Switcher::maybeProgressTitle(const Settings &cfg, const Detection &detectio
 		if (!progressWaitLogged_) {
 			const auto left =
 				std::chrono::duration_cast<std::chrono::minutes>(minimum - (now - *lastTitleChange_));
-			addHistory(QString("Neuer Abschnitt „%1“ – Titel frühestens in %2 min")
+			addHistory(QString(Tr("Status.NewSection1TitleAt"))
 					   .arg(qstr(detection.scene))
 					   .arg(left.count() + 1));
 			progressWaitLogged_ = true;
@@ -821,30 +829,30 @@ void Switcher::maybeProgressTitle(const Settings &cfg, const Detection &detectio
 		title_ = qstr(title);
 	}
 	emit statusChanged();
-	addHistory("Titel angepasst (neuer Abschnitt): " + qstr(title));
+	addHistory(Tr("Status.TitleAdjustedNewSection") + qstr(title));
 }
 
 void Switcher::applyManual(const Settings &cfg, const std::string &name)
 {
 	if (!twitch_.connected() && !youtube_.connected()) {
-		setNotice("Weder mit Twitch noch mit YouTube verbunden", true);
+		setNotice(Tr("Status.ConnectedToNeitherTwitchNor2"), true);
 		return;
 	}
 	std::optional<Category> category = resolveCategory(name);
 	if (!category) {
-		setNotice("Keine Twitch-Kategorie für „" + qstr(name) + "“ gefunden", true);
+		setNotice(QString(Tr("Status.NoCategoryFound")).arg(qstr(name)), true);
 		return;
 	}
 	{
 		std::lock_guard lock(mutex_);
 		holdUntil_ = std::chrono::steady_clock::now() + kManualHold;
-		detection_ = qstr(category->name) + " (manuell)";
+		detection_ = qstr(category->name) + Tr("Status.Manual");
 		detectionReason_.clear();
 		detectionTime_ = QTime::currentTime().toString("HH:mm:ss");
 	}
 	lastDetectionLabel_ = qstr(category->name);
 	setNotice({}, false);
-	addHistory("Manuell korrigiert: " + qstr(category->name) + " – die KI stellt 15 Minuten nicht um");
+	addHistory(QString(Tr("Status.CorrectedManually")).arg(qstr(category->name)));
 	if (!knownCategory_)
 		refreshChannel();
 	apply(cfg, *category, {}, {}, nullptr);
@@ -859,7 +867,7 @@ std::vector<std::string> Switcher::speechKeywords(const Settings &cfg, const std
 		return extractKeywords(aiTargetFrom(cfg), recentSpeech_, game.empty() ? std::string("-") : game,
 				       titleLanguageName(cfg));
 	} catch (const std::exception &e) {
-		addHistory(QString("Stichwörter aus der Stimme fehlgeschlagen: %1").arg(e.what()));
+		addHistory(QString(Tr("Status.KeywordsFromYourVoiceFailed")).arg(e.what()));
 		return {};
 	}
 }
@@ -889,7 +897,7 @@ std::string Switcher::makeTitleCore(const Settings &cfg, const std::string &game
 			BusyGuard busy([this](bool value) { setBusy(value); });
 			core = writeTitle(aiTargetFrom(cfg), request);
 		} catch (const std::exception &e) {
-			addHistory(QString("KI-Titel fehlgeschlagen (%1) – nehme die Vorlage").arg(e.what()));
+			addHistory(QString(Tr("Status.AITitleFailed1Using")).arg(e.what()));
 		}
 	}
 	if (core.empty())
@@ -914,9 +922,9 @@ void Switcher::publishYouTube(const std::string &title)
 	try {
 		if (youtube_.updateTitle(title)) {
 			youtubeNoLiveLogged_ = false;
-			addHistory("YouTube-Titel: " + qstr(title));
+			addHistory(Tr("Status.YouTubeTitle") + qstr(title));
 		} else if (!youtubeNoLiveLogged_) {
-			addHistory("YouTube: Gerade kein Livestream – Titel nicht geändert");
+			addHistory(Tr("Status.YouTubeNoLivestreamRightNow"));
 			youtubeNoLiveLogged_ = true;
 		}
 	} catch (const std::exception &e) {
@@ -982,8 +990,8 @@ void Switcher::apply(const Settings &cfg, const Category &category, const std::s
 	QStringList tagNames;
 	for (const std::string &tag : tags)
 		tagNames << qstr(tag);
-	addHistory(QString(twitch_.connected() ? "Twitch umgestellt: " : "Spiel gewechselt: ") + qstr(category.name) +
-		   (title.empty() ? "" : " · " + qstr(title)) +
+	addHistory(QString(Tr(twitch_.connected() ? "Status.TwitchUpdated" : "Status.GameSwitched")) +
+		   qstr(category.name) + (title.empty() ? "" : " · " + qstr(title)) +
 		   (tagNames.isEmpty() ? QString() : " · Tags: " + tagNames.join(", ")));
 }
 
@@ -1018,13 +1026,13 @@ void Switcher::loginTask(const std::string &clientId)
 		emit openUrlRequested(qstr(flow.verificationUri));
 
 		if (twitch_.waitForDeviceLogin(clientId, flow, [this] { return cancelLogin_.load(); })) {
-			addHistory("Mit Twitch verbunden als " + qstr(twitch_.login()));
+			addHistory(Tr("Status.ConnectedToTwitchAs") + qstr(twitch_.login()));
 			setNotice({}, false);
 			refreshChannel_ = true; // setzt auch die bekannte Kategorie neu
 			std::lock_guard lock(mutex_);
 			dueNow_ = true;
 		} else if (!cancelLogin_) {
-			addHistory("Twitch-Anmeldung abgelaufen – bitte erneut verbinden");
+			addHistory(Tr("Status.TwitchSignInExpiredPlease"));
 		}
 	} catch (const std::exception &e) {
 		setNotice(e.what(), true);
@@ -1059,7 +1067,7 @@ void Switcher::youtubeLoginTask(const std::string &clientId, const std::string &
 {
 	try {
 		if (clientSecret.empty())
-			throw YouTubeError("Kein Client-Secret eingetragen (Einstellungen → YouTube)");
+			throw YouTubeError(Tr("Status.NoClientSecretEnteredSettings"));
 		const DeviceFlow flow = youtube_.startDeviceFlow(clientId);
 		{
 			std::lock_guard lock(mutex_);
@@ -1071,13 +1079,13 @@ void Switcher::youtubeLoginTask(const std::string &clientId, const std::string &
 		emit openUrlRequested(qstr(flow.verificationUri));
 		if (youtube_.waitForDeviceLogin(clientId, clientSecret, flow,
 						[this] { return cancelYouTubeLogin_.load(); })) {
-			addHistory("Mit YouTube verbunden: " + qstr(youtube_.channel()));
+			addHistory(Tr("Status.ConnectedToYouTube") + qstr(youtube_.channel()));
 			setNotice({}, false);
 			std::lock_guard lock(mutex_);
 			nextLivePoll_.reset();
 			dueNow_ = true;
 		} else if (!cancelYouTubeLogin_) {
-			addHistory("YouTube-Anmeldung abgelaufen – bitte erneut verbinden");
+			addHistory(Tr("Status.YouTubeSignInExpiredPlease"));
 		}
 	} catch (const std::exception &e) {
 		setNotice(e.what(), true);
@@ -1097,7 +1105,7 @@ void Switcher::disconnectYouTube()
 	cancelYouTubeLogin_ = true;
 	runInBackground([this] {
 		youtube_.disconnect();
-		addHistory("YouTube-Verbindung getrennt");
+		addHistory(Tr("Status.YouTubeDisconnected"));
 		emit statusChanged();
 	});
 }
@@ -1113,7 +1121,7 @@ void Switcher::disconnectTwitch()
 			category_.clear();
 			title_.clear();
 		}
-		addHistory("Twitch-Verbindung getrennt");
+		addHistory(Tr("Status.TwitchDisconnected"));
 		emit statusChanged();
 	});
 }
