@@ -52,6 +52,17 @@ Titel, Kategorie und Tags ziehen von selbst nach, auf Twitch und YouTube, mit **
 
 </div>
 
+<details>
+<summary>🇬🇧 <b>In English</b></summary>
+
+**TitleSync** is a free, open-source OBS plugin: an AI looks at your stream, recognizes the game you're playing and automatically updates your **Twitch title, category and tags** plus your **YouTube live title**. It runs locally with Ollama by default – no account, no API key, no image leaves your PC.
+
+The interface is available in **English and German** and follows your OBS language automatically (you can change it at the bottom of the settings window).
+
+**Install (Windows):** download the [setup](https://github.com/BellocccYT/titlesync/releases/latest), keep “Install Ollama” checked, start OBS, open the **TitleSync** dock → **Settings … → Twitch → Connect with Twitch**. Requires OBS Studio 31+.
+
+</details>
+
 ## ✨ Was es kann
 
 | | |
@@ -65,6 +76,7 @@ Titel, Kategorie und Tags ziehen von selbst nach, auf Twitch und YouTube, mit **
 | 🎯 **100 % sicher mit Zuordnungen** | `javaw.exe → Minecraft` einmal festlegen, dann wird ganz ohne KI sofort umgestellt. Bei Emulatoren auch mehrere Spiele pro Programm, je mit eigenem Titel und eigenen Tags. |
 | 🔎 **Doppelt geprüft** | Vor einem Wechsel vergleicht die KI das Bild mit Screenshots aus dem Steam-Shop. Verwechslungen fallen so meist auf. |
 | 🖥️ **Eigenes Dock in OBS** | Live-Status, Vorschaubild, Verlauf, „Jetzt prüfen“, „Test“, Pause und „Falsch erkannt?“ |
+| 🌍 **Deutsch & English** | Die Oberfläche folgt automatisch der Sprache von OBS, umstellbar unten im Einstellungsfenster. |
 
 ## ⚙️ So funktioniert's
 
@@ -170,6 +182,8 @@ Bei Online-Anbietern prüfst du den Key mit **Modelle laden** und wählst dabei 
 | YouTube | Client-ID / Clientschlüssel | Eigenes Google-Cloud-Projekt, Schritt-für-Schritt-Anleitung im Reiter |
 | Stimme | Stimme mithören | Lokale Spracherkennung (whisper.cpp), Mikrofon und Modell wählbar. Standard aus. |
 | Zuordnungen | | Programm, Fenstertitel enthält (für Emulatoren), Kategorie, eigener Titel, Tags |
+
+**Sprache der Oberfläche:** Ganz unten im Einstellungsfenster: Automatisch (wie OBS), Deutsch oder English. Das Dock wechselt nach einem Neustart von OBS.
 
 **Tastenkürzel:** Unter **OBS-Einstellungen → Tastenkürzel** findest du „TitleSync: Jetzt prüfen“, „Test“ und „Pausieren / Fortsetzen“.
 
