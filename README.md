@@ -119,9 +119,22 @@ Voraussetzung ist **OBS Studio 31 oder neuer**. Deinstallieren kannst du über *
 </details>
 
 <details>
-<summary>macOS und Linux (experimentell)</summary>
+<summary>Linux und macOS (experimentell)</summary>
 
-Die Releases enthalten auch Pakete für macOS und Ubuntu. Sie werden automatisch gebaut, wurden aber noch nicht auf echten Geräten getestet. Rückmeldungen sind sehr willkommen!
+Diese Pakete werden automatisch gebaut, wurden aber noch nicht auf echten Geräten getestet. Rückmeldungen sind sehr willkommen!
+
+**Ubuntu, Debian, Linux Mint, Pop!_OS:** `titlesync-…-x86_64-linux-gnu.deb` herunterladen und mit `sudo apt install ./titlesync-…-x86_64-linux-gnu.deb` installieren.
+
+**Alle anderen Distributionen (Arch, Fedora, openSUSE …):** `titlesync-…-x86_64-linux-portable.tar.xz` herunterladen, OBS schließen und im Terminal:
+
+```bash
+tar -xf titlesync-*-x86_64-linux-portable.tar.xz
+./install.sh
+```
+
+Das Plugin landet in `~/.config/obs-studio/plugins/titlesync`, root-Rechte sind nicht nötig. Entfernen mit `./install.sh --uninstall`. Voraussetzung ist ein aktuelles OBS Studio aus der Paketverwaltung deiner Distribution und eine aktuelle Distribution (glibc 2.39 oder neuer). Für OBS als Flatpak gibt es noch kein Paket.
+
+**macOS:** `titlesync-…-macos-universal.pkg` herunterladen und öffnen.
 
 </details>
 

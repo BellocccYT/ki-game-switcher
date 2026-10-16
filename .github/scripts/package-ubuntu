@@ -170,6 +170,27 @@ ${_usage_host:-}"
     XZ_OPT=-T0 tar "-${_tarflags}" ${project_root}/release/${output_name}.tar.xz (lib|share)
     popd
   }
+
+  # Portables Archiv für alle Distributionen: Benutzer-Plugin-Ordner von OBS + install.sh
+  log_group "Creating portable archive for ${product_name}..."
+  local portable_root=${project_root}/release/portable
+  local plugin_dir=${portable_root}/${product_name}
+  local -a modules=(${project_root}/release/${config}/lib/**/obs-plugins/${product_name}.so(N))
+  if (( ! ${#modules} )) {
+    log_error "Plugin module ${product_name}.so not found in release/${config}"
+    return 2
+  }
+  rm -rf ${portable_root}
+  mkdir -p ${plugin_dir}/bin/64bit ${plugin_dir}/data
+  cp ${modules[1]} ${plugin_dir}/bin/64bit/
+  strip --strip-debug ${plugin_dir}/bin/64bit/${product_name}.so
+  cp -R ${project_root}/release/${config}/share/obs/obs-plugins/${product_name}/. ${plugin_dir}/data/
+  cp ${project_root}/installer/linux/install.sh ${project_root}/LICENSE ${portable_root}/
+  chmod 755 ${portable_root}/install.sh
+
+  pushd ${portable_root}
+  XZ_OPT=-T0 tar -cJf ${project_root}/release/${product_name}-${product_version}-x86_64-linux-portable.tar.xz     install.sh LICENSE ${product_name}
+  popd
   log_group
 }
 
